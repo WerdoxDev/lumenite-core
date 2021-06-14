@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Lumenite backend project",
   "scripts": {
-    "start": "npx ts-node server.ts",
+    "start": "npm install && npx ts-node server.ts",
     "build": "cd ../ && npm run build",
     "start-server": "npm install && cd ../ && npm install && cd server && npm run build && npx ts-node server.ts"
   },
