@@ -177,7 +177,8 @@ export default defineComponent({
 
             // socket = io("http://192.168.1.115:3001");
             // socket = io("http://192.168.1.102:3001");
-            socket = io("https://lumenite.matin-tat.ir");
+            //socket = io("https://lumenite.matin-tat.ir");
+            socket = io("https://lumenite-test.herokuapp.com");
 
             socket.on("connect", () => {
                 state.connected = true;
