@@ -4,7 +4,6 @@
   "description": "Lumenite backend project",
   "scripts": {
     "start": "npm install && npx ts-node server.ts",
-    "build": "cd ../ && npm run build",
     "start-server": "npm install && cd ../ && npm install && cd server && npm run build && npx ts-node server.ts"
   },
   "dependencies": {
@@ -13,6 +12,7 @@
     "express": "^4.17.1",
     "socket.io": "^4.1.2",
     "socket.io-client": "^4.1.2",
+    "typescript": "^4.3.2",
     "ts-node": "^10.0.0"
   },
   "author": "Werdox",
