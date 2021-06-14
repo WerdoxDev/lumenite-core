@@ -1,0 +1,29 @@
+{
+  "name": "lumenite-core",
+  "version": "0.0.1",
+  "description": "The core project for lumenite",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vue-tsc --noEmit && vite build",
+    "serve": "vite preview --host"
+  },
+  "dependencies": {
+    "@headlessui/vue": "^1.2.0",
+    "@heroicons/vue": "^1.0.1",
+    "postcss-nested": "^5.0.5",
+    "socket.io-client": "^4.1.2",
+    "vue": "^3.0.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^1.2.3",
+    "@vue/compiler-sfc": "^3.0.5",
+    "autoprefixer": "^10.2.6",
+    "postcss": "^8.3.2",
+    "tailwindcss": "^2.1.4",
+    "typescript": "^4.3.2",
+    "vite": "^2.3.7",
+    "vue-tsc": "^0.0.24"
+  },
+  "author": "Werdox",
+  "license": "ISC"
+}

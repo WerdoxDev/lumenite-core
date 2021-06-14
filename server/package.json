@@ -1,0 +1,20 @@
+{
+  "name": "lumenite-backend",
+  "version": "0.0.1",
+  "description": "Lumenite backend project",
+  "scripts": {
+    "start": "npx ts-node server.ts",
+    "build": "cd ../ && npm run build",
+    "start-server": "npm install && cd ../ && npm install && cd server && npm run build && npx ts-node server.ts"
+  },
+  "dependencies": {
+    "@types/express": "^4.17.12",
+    "connect-history-api-fallback": "^1.6.0",
+    "express": "^4.17.1",
+    "socket.io": "^4.1.2",
+    "socket.io-client": "^4.1.2",
+    "ts-node": "^10.0.0"
+  },
+  "author": "Werdox",
+  "license": "ISC"
+}
