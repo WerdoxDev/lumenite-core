@@ -1,6 +1,6 @@
 <template>
-    <div>
-        <Disclosure as="nav" class="bg-gray-800" v-slot="{ open }">
+    <div class="min-h-full relative">
+        <Disclosure as="nav" class="bg-gray-800">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
@@ -41,11 +41,11 @@
                     </div>
                     <div class="-mr-2 flex md:hidden">
                         <!-- Mobile menu button -->
-                        <DisclosureButton class="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
+                        <!-- <DisclosureButton class="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
                             <span class="sr-only">Open main menu</span>
                             <MenuIcon v-if="!open" class="block h-6 w-6" aria-hidden="true" />
                             <XIcon v-else class="block h-6 w-6" aria-hidden="true" />
-                        </DisclosureButton>
+                        </DisclosureButton> -->
                     </div>
                 </div>
             </div>
@@ -87,16 +87,22 @@
             </div>
         </header>
         <main>
-            <div v-if="state.loggedIn" class="mt-5 ml-5 flex items-center space-x-2">
-                <div class="rounded-full w-5 h-5" :class="state.connected ? 'bg-green-500' : 'bg-red-500'" />
-                <div>{{ state.connected ? "CONNECTED" : "DISCONNECTED" }}</div>
+            <div v-if="state.loggedIn" class="mt-5 ml-5 flex items-center flex-wrap gap-x-10 gap-y-1">
+                <div class="flex items-center space-x-2">
+                    <div class="rounded-full w-5 h-5" :class="state.connected ? 'bg-green-500' : 'bg-red-500'" />
+                    <div>{{ state.connected ? "CONNECTED" : "DISCONNECTED" }}</div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="rounded-full w-5 h-5" :class="state.moduleConnected ? 'bg-green-500' : 'bg-red-500'" />
+                    <div>{{ state.moduleConnected ? "MODULE CONNECTED" : "MODULE DISCONNECTED" }}</div>
+                </div>
             </div>
             <div class="max-w-7xl mx-auto pb-6 sm:px-6 lg:px-8">
                 <!-- Replace with your content -->
                 <div class="px-4 py-6 sm:px-0">
                     <div class="flex items-center h-full lg:flex-row" :class="!state.connected ? 'justify-center' : ''">
                         <div v-if="state.connected" class="p-5 m-10 h-full bg-gray-700 mx-auto rounded-lg shadow-2xl">
-                            <div class="p-4 h-full flex gap-10 justify-center flex-row flex-wrap mx-auto">
+                            <div class="p-4 h-full flex gap-10 justify-center flex-row flex-wrap mx-auto select-none">
                                 <div v-for="light in state.lightsStatus" :key="light.index" @click="onLightClick(light)" :class="`bg-${getCurrentColor(light)}-400`" class="h-56 w-full md:w-64 rounded-lg shadow-2xl cursor-pointer transform focus:scale-100 hover:scale-105 transition-all flex-grow flex-shrink-0">
                                     <div class="flex h-full justify-center items-center flex-col">
                                         <a href="#" class="text-white font-semibold text-4xl">Light {{ light.index + 1 }}</a>
@@ -111,7 +117,7 @@
                         <div v-if="!state.loggedIn" class="flex flex-col">
                             <label for="password" class="block text-2xl font-medium text-gray-700">Password</label>
                             <div class="mt-1 mb-2 relative rounded-md shadow-md">
-                                <input v-model="state.enteredPassword" type="text" name="password" id="password" class="border focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-2 text-2xl border-gray-200 rounded-md" placeholder="Enter password..." />
+                                <input v-model="state.enteredPassword" type="password" name="password" id="password" class="border focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-2 text-2xl border-gray-200 rounded-md" placeholder="Enter password..." />
                             </div>
                             <button @click="login" class="w-52 self-center bg-purple-600 text-white text-2xl text-base font-semibold py-2 rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-purple-200">Enter</button>
                         </div>
@@ -119,13 +125,13 @@
                 </div>
                 <!-- /End replace -->
             </div>
-            <div class="w-full absolute bottom-8">
-                <h1 class="text-center text-xl">تمام حقوق متعلق به متین تات میباشد</h1>
-            </div>
         </main>
         <div class="hidden bg-green-400 bg-yellow-400 bg-red-400 from-green-200 from-yellow-200 from-red-200 to-green-200 to-yellow-200 to-red-200"></div>
+        <div class="w-full h-14 absolute bottom-0 left-0">
+            <h1 class="text-center text-xl">تمام حقوق متعلق به متین تات میباشد</h1>
+        </div>
     </div>
-    <div class="absolute inset-0 bg-gradient-to-b from-white to-gray-200" style="z-index: -1"></div>
+    <div class="fixed inset-0 bg-gradient-to-b from-white to-gray-200" style="z-index: -1"></div>
 </template>
 
 <script lang="ts">
@@ -164,6 +170,7 @@ export default defineComponent({
 
         const state = reactive({
             connected: false,
+            moduleConnected: false,
             loggedIn: false,
             enteredPassword: "",
             lightsStatus: Array<Light>(),
@@ -177,14 +184,20 @@ export default defineComponent({
 
             // socket = io("http://192.168.1.115:3001");
             // socket = io("http://192.168.1.102:3001");
-            //socket = io("https://lumenite.matin-tat.ir");
-            socket = io("https://lumenite-test.herokuapp.com");
+            // socket = io("https://lumenite-test.herokuapp.com");
+            socket = io("https://lumenite.matin-tat.ir");
 
             socket.on("connect", () => {
                 state.connected = true;
-
                 socket.on("disconnect", () => {
                     state.connected = false;
+                });
+            });
+
+            socket.on("module-connect", () => {
+                state.moduleConnected = true;
+                socket.on("module-disconnect", () => {
+                    state.moduleConnected = false;
                 });
             });
 
@@ -200,6 +213,7 @@ export default defineComponent({
         }
 
         function onLightClick(light: Light) {
+            if (light.status == StatusType.PROCESSING || !state.moduleConnected) return;
             socket.emit("light-change", light, light.status == StatusType.ON ? StatusType.OFF : StatusType.ON);
             state.lightsStatus[light.index].status = StatusType.PROCESSING;
         }
@@ -218,6 +232,14 @@ export default defineComponent({
 </script>
 
 <style>
+html,
+body,
+#app {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
 button:focus {
     outline: none !important;
 }

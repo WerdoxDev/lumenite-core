@@ -21,57 +21,68 @@ let arduinoId: string;
 
 io.on("connection", socket => {
     console.log('Client connected [Websocket], Id: ' + socket.id);
-    socket.emit('connected');
+    let interval;
+
     if (arduinoId != null) {
         for (let i = 0; i < lightPinChecks.length; i++) {
-            io.sockets.in(arduinoId).emit('arduino-light-status', { pinCheck: lightPinChecks[i], index: i });
+            io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
         }
     }
 
-    socket.on('arduino-light-status-confirm', (light: Light) => {
+    socket.on('module-light-status-confirm', (light: Light) => {
         console.log(light);
         io.emit('light-change-confirm', light);
-    })
+    });
 
-    socket.on('set-arduino', () => {
-        console.log('Arduino configured');
+    socket.on('set-module', () => {
+        console.log('Module configured');
         arduinoId = socket.id;
+        io.emit('module-connect');
+        for (let i = 0; i < lightPinChecks.length; i++) {
+            io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
+        }
+
+        interval = setInterval(() => {
+            if (arduinoId != null) {
+                for (let i = 0; i < lightPinChecks.length; i++) {
+                    io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
+                }
+            }
+        }, 1000);
     });
 
     socket.on('light-change', (light: Light, status: StatusType) => {
         console.log(light);
-        if (!arduinoId) io.emit('set-arduino');
+        if (!arduinoId) io.emit('set-module');
         light.status = status;
-        io.sockets.in(arduinoId).emit('arduino-light-change', { light: light, pin: lightPins[light.index], pinCheck: lightPinChecks[light.index] });
+        io.sockets.in(arduinoId).emit('module-light-change', { light: light, pin: lightPins[light.index], pinCheck: lightPinChecks[light.index] });
     });
 
-    socket.on('arduino-light-change-confirm', (light: Light) => {
+    socket.on('module-light-change-confirm', (light: Light) => {
         console.log(light);
         io.emit('light-change-confirm', light);
     })
 
-    // socket.on("time", (data) => {
-    //     console.log(data);
-    //     socket.send("time received!");
-    // })
+    socket.on('diconnect', () => {
+        if (socket.id == arduinoId) {
+            io.emit('module-disconnect');
+            clearInterval(interval);
+        }
+    })
 });
 
 app.use(historyApi());
 
 app.use('/', express.static(filePath));
 
-// http.listen({ host: '192.168.1.115', port: port }, () => {
-//     console.log(`Listening on port *:${port}`);
-// });
+http.listen({ host: '192.168.1.115', port: port }, () => {
+    console.log(`Listening on port *:${port}`);
+});
 
 // http.listen({ host: '192.168.1.102', port: port }, () => {
 //     console.log(`Listening on port *:${port}`);
 // });
 
-http.listen(port, () => {
-    console.log(`Listening on port *:${port}`);
-
-    http.on('connection', () => {
-        console.log('Connection');
-    });
-});
+// http.listen(port, () => {
+//     console.log(`Listening on port *:${port}`);
+// });
