@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "The core project for lumenite",
   "scripts": {
+    "start": "cd server && npm start",
     "dev": "vite --host",
     "build": "vue-tsc --noEmit && vite build",
     "serve": "vite preview --host"
