@@ -3,7 +3,7 @@ import Http from 'http';
 import SocketIO from 'socket.io';
 import historyApi from 'connect-history-api-fallback';
 import path from 'path';
-import { Light, StatusType } from '../types';
+import { Light, StatusType, TempSensor } from '../types';
 const port = process.env.PORT || 3001;
 const app = express();
 const http = new Http.Server(app);
@@ -14,61 +14,61 @@ const io = new SocketIO.Server(http, {
     }
 });
 
-const lightPins = [5, 4];
-const lightPinChecks = [14, 12];
+const lights = [{ pin: 5, pinCheck: 14 }, { pin: 4, pinCheck: 12 }];
 
-let arduinoId: string;
+let numOfDevices = 0;
+
+let moduleId: string = "nothing";
 
 io.on("connection", socket => {
     console.log('Client connected [Websocket], Id: ' + socket.id);
-    let interval;
 
-    if (arduinoId != null) {
-        for (let i = 0; i < lightPinChecks.length; i++) {
-            io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
-        }
-    }
-
-    socket.on('module-light-status-confirm', (light: Light) => {
-        console.log(light);
-        io.emit('light-change-confirm', light);
-    });
+    socket.on('set-client', () => {
+        io.sockets.in(moduleId).emit('module-get-lights-status');
+        io.sockets.in(moduleId).emit('module-get-temp-status');
+        io.sockets.in(moduleId).emit('module-check');
+        socket.emit('configure-client');
+        numOfDevices++;
+        io.sockets.except(moduleId).emit('set-device-count', numOfDevices);
+        socket.on('light-status-change-request', (light: Light) => {
+            if (moduleId == "nothing") return;
+            io.sockets.in(moduleId).emit('module-change-light-status', light);
+        });
+        socket.on('disconnect', () => {
+            numOfDevices--;
+            io.sockets.except(moduleId).emit('set-device-count', numOfDevices);
+        });
+    })
 
     socket.on('set-module', () => {
-        console.log('Module configured');
-        arduinoId = socket.id;
-        io.emit('module-connect');
-        for (let i = 0; i < lightPinChecks.length; i++) {
-            io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
-        }
-
-        interval = setInterval(() => {
-            if (arduinoId != null) {
-                for (let i = 0; i < lightPinChecks.length; i++) {
-                    io.sockets.in(arduinoId).emit('module-light-status', { pinCheck: lightPinChecks[i], index: i });
-                }
-            }
-        }, 1000);
+        socket.emit('configure-module', lights);
+        socket.on('configure-module', () => {
+            moduleId = socket.id;
+            socket.emit('module-get-lights-status');
+            socket.emit('module-get-temp-status');
+            console.log('Module configured');
+            io.sockets.except(moduleId).emit('module-connect');
+        });
+        socket.on('module-connected', () => {
+            io.sockets.except(moduleId).emit('module-connect');
+        })
+        socket.on('module-light-status-changed', (light: Light) => {
+            io.sockets.except(moduleId).emit('light-status-changed', light);
+        });
+        socket.on('module-get-lights-status', (lights: Array<Light>) => {
+            io.sockets.except(moduleId).emit('set-lights-status', lights);
+        });
+        socket.on('module-temp-status-changed', (tempSensor: TempSensor) => {
+            io.sockets.except(moduleId).emit('set-temp-status', tempSensor);
+        });
+        socket.on('module-light-pin-error', (light: Light) => {
+            io.sockets.except(moduleId).emit('light-pin-error', light);
+        })
+        socket.on('disconnect', () => {
+            io.sockets.except(moduleId).emit('module-disconnect');
+            console.log('Module disconnect');
+        });
     });
-
-    socket.on('light-change', (light: Light, status: StatusType) => {
-        console.log(light);
-        if (!arduinoId) io.emit('set-module');
-        light.status = status;
-        io.sockets.in(arduinoId).emit('module-light-change', { light: light, pin: lightPins[light.index], pinCheck: lightPinChecks[light.index] });
-    });
-
-    socket.on('module-light-change-confirm', (light: Light) => {
-        console.log(light);
-        io.emit('light-change-confirm', light);
-    })
-
-    socket.on('diconnect', () => {
-        if (socket.id == arduinoId) {
-            io.emit('module-disconnect');
-            clearInterval(interval);
-        }
-    })
 });
 
 app.use(historyApi());

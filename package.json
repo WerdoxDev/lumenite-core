@@ -9,11 +9,12 @@
     "serve": "vite preview --host"
   },
   "dependencies": {
-    "@headlessui/vue": "^1.2.0",
+    "@headlessui/vue": "^1.2.0-105068",
     "@heroicons/vue": "^1.0.1",
     "postcss-nested": "^5.0.5",
     "socket.io-client": "^4.1.2",
-    "vue": "^3.0.5"
+    "vue": "^3.0.5",
+    "vuex": "^4.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^1.2.3",
