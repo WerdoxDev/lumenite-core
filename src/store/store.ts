@@ -2,7 +2,6 @@ import { io } from "socket.io-client";
 import { InjectionKey } from "vue";
 import { useStore as baseUseStore, Store, createStore } from "vuex";
 import { State, MutationType, ActionsType, GettersType, ClientConfiguration, Module, BasicDevice, ModulesType } from "../../types";
-import { deviceSettings } from "./deviceSettings";
 
 export const key: InjectionKey<Store<State>> = Symbol();
 
@@ -36,15 +35,15 @@ export const store = createStore<State>({
       state.connectedModules.splice(0, state.connectedModules.length);
     },
     [MutationType.SetDevices](state: State, devices: Array<BasicDevice>) {
-      state.devices = devices;
+      devices.forEach((value) => {
+        state.devices.push(value);
+      });
     },
     [MutationType.AddDevice](state: State, device: BasicDevice) {
       state.devices.push(device);
     },
-    [MutationType.RemoveDevice](state: State, device: BasicDevice) {
-      var index = state.devices.findIndex((x) => x.id === device.id);
-      state.devices.find;
-      if (index) state.devices.splice(index, 1);
+    [MutationType.RemoveDevices](state: State) {
+      state.devices.splice(0, state.devices.length);
     },
     [MutationType.SetConfiguration](state: State, configuration: ClientConfiguration) {
       state.configuration = configuration;
@@ -72,8 +71,8 @@ export const store = createStore<State>({
     [ActionsType.AddDevice]({ commit }, device: BasicDevice) {
       commit(MutationType.AddDevice, device);
     },
-    [ActionsType.RemoveDevice]({ commit }, device: BasicDevice) {
-      commit(MutationType.RemoveDevice, device);
+    [ActionsType.RemoveDevices]({ commit }) {
+      commit(MutationType.RemoveDevices);
     },
     [ActionsType.SetConfiguration]({ commit }, configuration: ClientConfiguration) {
       commit(MutationType.SetConfiguration, configuration);
@@ -95,9 +94,6 @@ export const store = createStore<State>({
     [GettersType.GetConfiguration](state: State) {
       return state.configuration;
     },
-  },
-  modules: {
-    deviceSettings,
   },
 });
 

@@ -7,7 +7,7 @@
                     <div class="mt-1 mb-2 relative rounded-md shadow-md">
                         <input v-model="state.enteredPassword" type="password" name="password" id="password" class="border focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-2 text-2xl border-gray-200 rounded-md" placeholder="Enter password..." />
                     </div>
-                    <button @click="login" class="w-52 self-center bg-purple-600 text-white text-2xl font-semibold py-2 rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-purple-200">Enter</button>
+                    <button @click="login()" class="w-52 self-center bg-purple-600 text-white text-2xl font-semibold py-2 rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-purple-200">Enter</button>
                 </div>
             </div>
         </div>
@@ -29,7 +29,7 @@ export default defineComponent({
         });
 
         function login() {
-            if (state.enteredPassword != "matin1385") return;
+            if (state.enteredPassword != "123") return;
             store.dispatch(ActionsType.SetUserLoggedIn, true);
             store.state.socket.connect();
         }

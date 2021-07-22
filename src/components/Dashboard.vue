@@ -4,21 +4,24 @@
             <div class="rounded-full w-5 h-5" :class="isCloudConnected ? 'bg-green-500' : 'bg-red-500'" />
             <div>{{ isCloudConnected ? "CLOUD CONNECTED" : "CLOUD DISCONNECTED" }}</div>
         </div>
-        <div class="flex items-center space-x-2">
+        <div v-if="isCloudConnected" class="flex items-center space-x-2">
             <div class="rounded-full w-5 h-5" :class="getConnectedModuleCount > 0 ? 'bg-green-500' : 'bg-red-500'" />
             <div>{{ getConnectedModuleCount }}/{{ getUserModulesCount }} MODULES CONNECTED</div>
         </div>
-        <div class="flex items-center space-x-2 mr-4">
-            <div class="space-x-2">{{ state.connectedClientsCount + " Device[s] Connected" }}</div>
+        <div v-if="isCloudConnected" class="flex items-center space-x-2 mr-4">
+            <div class="space-x-2">{{ state.connectedClientsCount + " Device(s) Connected" }}</div>
         </div>
     </div>
-    <div class="max-w-7xl mx-auto pb-6 sm:px-6 lg:px-8">
+    <div v-if="isCloudConnected" class="max-w-7xl mx-auto pb-6 sm:px-6 lg:px-8">
         <div class="px-4 py-6 sm:px-0">
             <div class="flex items-center h-full lg:flex-row" :class="!isCloudConnected ? 'justify-center' : ''">
-                <div v-if="isCloudConnected" class="p-5 m-10 h-full bg-gray-700 mx-auto rounded-lg shadow-2xl">
-                    <div class="p-4 h-full flex gap-10 justify-center flex-row flex-wrap mx-auto select-none">
+                <div class="p-5 m-10 h-full bg-gray-700 mx-auto rounded-lg shadow-2xl">
+                    <div v-if="getDevices.length > 0" class="p-4 h-full flex gap-10 justify-center flex-row flex-wrap mx-auto select-none">
                         <LightDevice v-for="light in getDevices.filter((x) => x.type === DeviceType.Light)" :key="light.id" :deviceId="light.id" />
+                        <RgbLightDevice v-for="rgbLight in getDevices.filter((x) => x.type === DeviceType.RgbLight)" :key="rgbLight.id" :deviceId="rgbLight.id" />
                     </div>
+                    <h1 v-else class="text-white text-2xl">Loading data...</h1>
+
                     <!-- <div class="p-4">
                         <div class="bg-white rounded-lg p-4 shadow-2xl flex flex-wrap justify-center">
                             <h1 class="text-black text-2xl">Temp: {{ state.tempSensor.temperature }},&nbsp;</h1>
@@ -30,6 +33,9 @@
         </div>
         <!-- /End replace -->
     </div>
+    <div v-else class="mt-10">
+        <h1 class="text-center font-bold text-2xl">Connecting...</h1>
+    </div>
 </template>
 
 <script lang="ts">
@@ -37,6 +43,7 @@ import { computed, ComputedRef, defineComponent, onMounted, onUnmounted, reactiv
 import { DeviceType, ActionsType, GettersType, Light, StatusType, TempSensor, ErrorType, ClientCommands, ClientConfiguration, Module, Device, BasicDevice } from "../../types";
 import { useStore } from "../store/store";
 import LightDevice from "./LightDevice.vue";
+import RgbLightDevice from "./RgbLightDevice.vue";
 //import ErrorModal from "./modals/ErrorModal.vue";
 //import LightSettingsModal from "./modals/LightSettingsModal.vue";
 
@@ -44,6 +51,7 @@ export default defineComponent({
     name: "Dashboard",
     components: {
         LightDevice,
+        RgbLightDevice,
         //ErrorModal,
         //LightSettingsModal,
     },
@@ -103,16 +111,20 @@ export default defineComponent({
             });
             store.state.socket.on(ClientCommands.SetDevices, (devices: Array<BasicDevice>) => {
                 store.state.socket.emit(ClientCommands.SetDevicesResponse);
+                store.dispatch(ActionsType.RemoveDevices);
                 store.dispatch(ActionsType.SetDevices, devices);
                 store.state.devices.forEach((value) => {
                     console.log(value.name + " " + value.status.currentStatus + " C");
                 });
             });
+
             store.state.socket.onAny(onAny);
 
             store.state.socket.on("disconnect", () => {
                 isCloudConnected.value = false;
                 store.dispatch(ActionsType.ClearConnectedModules);
+                store.dispatch(ActionsType.RemoveDevices);
+                state.connectedClientsCount = 0;
             });
         });
 
@@ -121,7 +133,6 @@ export default defineComponent({
         }
 
         onUnmounted(() => {
-            store.state.socket.off(ClientCommands.DeviceStatusChanged);
             store.state.socket.off(ClientCommands.DeviceSettingsChanged);
             store.state.socket.off(ClientCommands.CloudConnect);
             store.state.socket.off(ClientCommands.ModuleConnect);
@@ -142,8 +153,6 @@ export default defineComponent({
             getDevices,
             StatusType,
             DeviceType,
-            //errorModal,
-            //lightSettingsModal,
         };
     },
 });

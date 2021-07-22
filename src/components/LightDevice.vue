@@ -3,16 +3,16 @@
         <div @click="changeLightStatus" :class="`bg-${getColor}-400`" class="animate-light-body-popup relative h-56 w-full rounded-lg shadow-2xl cursor-pointer transform hover:scale-105 hover:-translate-y-2 focus:opacity-0 transition-all">
             <div class="flex justify-center items-center flex-col h-full">
                 <h1 class="text-white font-bold text-4xl">{{ state.light.name }}</h1>
-                <p class="text-gray-200">{{ getCurrentStatus() === StatusType.Processing ? getCurrentStatus() + "..." : getCurrentStatus() }}</p>
+                <p class="text-gray-200">{{ getStatusText }}</p>
                 <transition leave-active-class="transition duration-100 ease-in" leave-to-class="opacity-0" enter-active-class="transition duration-100 ease-in" enter-from-class="opacity-0">
                     <div>
-                        <div v-if="isTimerActive" class="top-5 left-5 absolute bg-blue-500 shadow-lg rounded-md p-2 text-white font-bold">{{ getFormattedTime }} | {{ getLastStatus() }} -> {{ getFutureStatus() }}</div>
+                        <div v-if="isTimerActive" class="top-5 left-5 absolute bg-blue-500 shadow-lg rounded-md p-2 text-white font-bold">{{ getFormattedTime }} | {{ StatusType[getLastStatus()].toUpperCase() }} -> {{ StatusType[getFutureStatus()].toUpperCase() }}</div>
                         <div v-if="isTimerActive" class="top-5 right-5 absolute bg-red-500 shadow-lg rounded-md p-2 text-white font-bold transform transition-all hover:scale-105" @click="cancelTimer()">Cancel</div>
                     </div>
                 </transition>
             </div>
         </div>
-        <div class="animate-light-footer-popup h-16 bg-white rounded-lg z-10 relative -mt-3 w-11/12">
+        <div v-if="state.light.isConnected" class="animate-light-footer-popup h-16 bg-white rounded-lg z-10 relative -mt-3 w-11/12">
             <div class="flex items-center w-full h-full p-3">
                 <Listbox v-model="state.selectedMode" class="w-full">
                     <div class="relative mt-1">
@@ -41,12 +41,12 @@
             </div>
         </div>
     </div>
-    <ErrorModal ref="errorModal" class="hidden" />
+    <ErrorModal ref="errorModal" class="hidden"></ErrorModal>
     <LightSettingsModal ref="lightSettingsModal" class="hidden" :deviceId="deviceId" />
 </template>
 
 <script lang="ts">
-import { computed, ComputedRef, defineComponent, reactive, ref, onMounted } from "vue";
+import { computed, ComputedRef, defineComponent, reactive, ref, onMounted, onUnmounted, watch, onUpdated } from "vue";
 import { Listbox, ListboxLabel, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { ClientCommands, Device, DeviceStatus, emptyStatus, getMsFromTime, Light, StatusType, Timer, TimingType } from "../../types";
 import { CogIcon } from "@heroicons/vue/outline";
@@ -55,7 +55,7 @@ import { useStore } from "../store/store";
 import LightSettingsModal from "./modals/deviceSettings/LightSettingsModal.vue";
 import ErrorModal from "./modals/ErrorModal.vue";
 
-const colors = { NONE: "purple", ON: "green", WAITING: "blue", PROCESSING: "yellow", OFF: "red" };
+const colors = { [-3]: "purple", [1]: "green", [-2]: "blue", [-1]: "yellow", [0]: "red", OFFLINE: "pink" };
 const modes = [
     { name: "Toggle", value: TimingType.Toggle },
     { name: "Pulse", value: TimingType.Pulse },
@@ -79,63 +79,77 @@ export default defineComponent({
         deviceId: Number,
     },
     setup(props) {
+        const store = useStore();
+
         const errorModal = ref<InstanceType<typeof ErrorModal>>();
         const lightSettingsModal = ref<InstanceType<typeof LightSettingsModal>>();
 
-        const store = useStore();
         const state = reactive({
             selectedMode: modes[0],
-            timerInitialStatus: StatusType.Waiting,
             light: store.state.devices.find((x) => x.id === props.deviceId) as Light,
         });
 
         var timeout;
 
+        watch(store.state.devices, (newValue, oldValue) => {
+            state.light = newValue.find((x) => x.id === props.deviceId) as Light;
+        });
+
         const getColor: ComputedRef<string> = computed(() => {
+            if (!state.light.isConnected) return colors["OFFLINE"];
             return colors[getCurrentStatus()];
         });
 
+        const getStatusText: ComputedRef<string> = computed(() => {
+            if (!state.light.isConnected) return "OFFLINE";
+            if (getCurrentStatus() === StatusType.Processing) return StatusType[getCurrentStatus()].toUpperCase() + "...";
+            return StatusType[getCurrentStatus()].toString().toUpperCase();
+        });
+
         const isTimerActive: ComputedRef<boolean> = computed(() => {
-            return state.light?.settings.timings?.timer?.timeLeft ? true : false;
+            return state.light.settings.timer?.timeLeft ? true : false;
         });
 
         const getFormattedTime: ComputedRef<string> = computed(() => {
-            if (state.light?.settings.timings?.timer?.timeLeft) {
-                var timer = state.light?.settings.timings.timer.timeLeft;
+            if (state.light.settings.timer?.timeLeft) {
+                var timer = state.light.settings.timer.timeLeft;
                 return (timer.hour >= 10 ? timer.hour.toString() : "0" + timer.hour.toString()) + ":" + (timer.minute >= 10 ? timer.minute.toString() : "0" + timer.minute.toString()) + ":" + (timer.second >= 10 ? timer.second.toString() : "0" + timer.second.toString());
             }
             return "00:00:00";
         });
 
         function changeLightStatus() {
-            if (getCurrentStatus() === StatusType.Processing || getCurrentStatus() === StatusType.Waiting || getCurrentStatus() === StatusType.None) return;
-            state.light!.status.futureStatus = getOppositeStatus(getCurrentStatus());
-            state.light!.status.lastStatus = getCurrentStatus();
-            state.light!.status.currentStatus = StatusType.Processing;
+            if (!isInValidState()) return;
+            state.light.status.futureStatus = getOppositeStatus(getCurrentStatus());
+            state.light.status.lastStatus = getCurrentStatus();
+            state.light.status.currentStatus = StatusType.Processing;
             store.state.socket.emit(ClientCommands.ChangeDeviceStatus, state.light, state.selectedMode.value);
             timeout = setTimeout(() => {
                 if (getCurrentStatus() === StatusType.Processing) {
-                    errorModal.value?.open("Device Status Timeout", `Your request to change the status of (${state.light.name}) from ${getLastStatus()} to ${getFutureStatus()} has Timed out. Please check your connection to the internet`);
+                    errorModal.value?.open("Device Status Timeout", `Your request to change the status of (${state.light.name}) from ${StatusType[getLastStatus()].toUpperCase()} to ${StatusType[getFutureStatus()].toUpperCase()} has Timed out. Please check your connection to the internet`);
                     state.light.status.currentStatus = state.light.status.lastStatus;
                 }
             }, getMsFromTime(state.light.settings.timeoutTime));
         }
 
+        function isInValidState() {
+            return getCurrentStatus() !== StatusType.Processing && getCurrentStatus() !== StatusType.Waiting && getCurrentStatus() !== StatusType.None;
+        }
+
         function openSettings() {
-            // emit("settings-clicked", state.light?, state.light?Settings);
             lightSettingsModal.value?.open();
         }
 
         function getFutureStatus(): StatusType {
-            return state.light?.status.futureStatus || emptyStatus().futureStatus;
+            return state.light.status.futureStatus;
         }
 
         function getCurrentStatus(): StatusType {
-            return state.light?.status.currentStatus || emptyStatus().currentStatus;
+            return state.light.status.currentStatus;
         }
 
         function getLastStatus(): StatusType {
-            return state.light?.status.lastStatus || emptyStatus().lastStatus;
+            return state.light.status.lastStatus;
         }
 
         function getOppositeStatus(status: StatusType): StatusType {
@@ -145,30 +159,35 @@ export default defineComponent({
         onMounted(() => {
             store.state.socket.on(ClientCommands.DeviceStatusChanged, (device: Device) => {
                 if (device.id !== props.deviceId) return;
-                //state.light!.status.lastStatus = getCurrentStatus();
-                state.light!.status = device.status;
+                state.light.status = device.status;
                 clearTimeout(timeout);
             });
             store.state.socket.on(ClientCommands.SetTimer, (deviceId: number, timer: Timer) => {
                 if (deviceId !== props.deviceId) return;
-                state.light!.settings.timings!.timer = timer;
+                state.light.settings.timer = timer;
             });
             store.state.socket.on(ClientCommands.DevicePinError, (device: Device) => {
                 if (device.id !== props.deviceId) return;
-                errorModal.value?.open("Device Pin Error", `Your device (${device.name}) Failed to change its status from ${device.status.lastStatus} to ${device.status.futureStatus}. This either means the physical pin / pinCheck is disconnected`);
+                errorModal.value?.open("Device Pin Error", `Your device (${device.name}) Failed to change its status from ${StatusType[device.status.lastStatus].toUpperCase()} to ${StatusType[device.status.futureStatus].toUpperCase()}. This either means the physical pin / pinCheck is disconnected`);
+                state.light.status.currentStatus = device.status.lastStatus;
             });
         });
 
+        onUnmounted(() => {
+            store.state.socket.off(ClientCommands.DeviceStatusChanged);
+            store.state.socket.off(ClientCommands.DevicePinError);
+            store.state.socket.off(ClientCommands.SetTimer);
+        });
+
         function cancelTimer() {
-            store.state.socket.emit(ClientCommands.SetTimer, state.light, undefined);
-            var newLight: Light = { id: state.light.id, name: state.light.name, type: state.light.type, settings: state.light.settings, configuration: state.light.configuration, status: { currentStatus: getCurrentStatus(), lastStatus: getLastStatus(), futureStatus: getLastStatus() } };
-            store.state.socket.emit(ClientCommands.ChangeDeviceStatus, newLight);
+            store.state.socket.emit(ClientCommands.SetTimer, state.light.id, undefined);
         }
 
         return {
             state,
             StatusType,
             getColor,
+            getStatusText,
             getFormattedTime,
             isTimerActive,
             changeLightStatus,

@@ -2,7 +2,6 @@ import { Socket } from "socket.io-client";
 
 // Devices with no configurations can just be called Device
 // Devices with configurations such as scheduling can extend the SchedulingSettings interface
-// Devices with specific configurations such as Analog, can extend Analog interface
 
 // ------ Devices ------
 
@@ -12,7 +11,11 @@ export interface TemperatureSensor extends BasicDevice {
   status: TemperatureStatus;
 }
 
-export interface RandomAnalogDevice extends AnalogDevice {}
+export interface RgbLight extends BasicDevice {
+  configuration: RgbLightConfiguration;
+  status: RgbLightStatus;
+  settings: RgbLightSettings;
+}
 
 export interface TempSensor {
   temperature: string;
@@ -22,20 +25,22 @@ export interface TempSensor {
 // ------ Base interfaces ------
 
 export interface Device {
-  id: number;
+  readonly id: number;
   name: string;
   status: DeviceStatus;
-  type: DeviceType;
-}
-
-export interface AnalogDevice extends Device {
-  status: AnalogStatus;
+  readonly type: DeviceType;
 }
 
 export interface BasicConfiguration {
   pinConfiguration: PinConfiguration;
   moduleToken: string;
   isAnalog: boolean;
+  isSubmodule: boolean;
+  isInverted: boolean;
+}
+
+export interface RgbLightConfiguration extends BasicConfiguration {
+  pinConfiguration: RgbLightPinConfiguration;
 }
 
 export interface PinConfiguration {
@@ -43,10 +48,22 @@ export interface PinConfiguration {
   pinCheck?: number;
 }
 
+export interface RgbLightPinConfiguration extends PinConfiguration {
+  redPin: number;
+  greenPin: number;
+  bluePin: number;
+}
+
 export interface DeviceStatus {
-  futureStatus: StatusType;
-  currentStatus: StatusType;
-  lastStatus: StatusType;
+  futureStatus: number;
+  currentStatus: number;
+  lastStatus: number;
+}
+
+export interface RgbLightStatus extends DeviceStatus {
+  redValue: number;
+  greenValue: number;
+  blueValue: number;
 }
 
 export interface TemperatureStatus extends DeviceStatus {
@@ -54,23 +71,27 @@ export interface TemperatureStatus extends DeviceStatus {
   humidity: number;
 }
 
-export interface AnalogStatus extends DeviceStatus {
-  output: number;
-}
-
 export interface BasicDevice extends Device {
   settings: BasicSettings;
   configuration: BasicConfiguration;
+  isConnected: boolean;
 }
 
 export interface BasicSettings {
-  timings?: SchedulingSettings;
+  manualTimings: ManualTimings;
+  automaticTimings: AutomaticTimings;
+  timer?: Timer;
   timeoutTime: Time;
 }
 
-export interface SchedulingSettings {
-  manualTimings?: ManualTimings;
-  timer?: Timer;
+export interface RgbLightSettings extends BasicSettings {
+  color: Color;
+}
+
+export interface Color {
+  red: number;
+  green: number;
+  blue: number;
 }
 
 export interface ToggleTiming {
@@ -82,9 +103,17 @@ export interface PulseTiming {
   pulseTimeout: Time;
 }
 
-export interface ManualTimings {
-  toggleTiming?: ToggleTiming;
-  pulseTiming?: PulseTiming;
+export interface Timing {
+  type: ManualTimingType;
+  time: Time;
+}
+
+export interface AutomaticTiming {
+  id: number;
+  name: string;
+  dates: Array<AutomaticDate>;
+  weekdays: Array<AutomaticWeekday>;
+  // TODO: Add the actual time here later
 }
 
 export interface Time {
@@ -97,6 +126,12 @@ export interface ModalState {
   isOpen: boolean;
   title?: string;
   text?: string;
+}
+
+export interface SettingsModalMenu {
+  id: number;
+  name: string;
+  isHeader: boolean;
 }
 
 export interface Timer {
@@ -138,19 +173,58 @@ export interface ClientConfiguration {
   registeredModuleTokens: Array<string>;
 }
 
+export interface Weekday {
+  id: number;
+  text: string;
+  selected: boolean;
+}
+
+export interface AutomaticDate {
+  year: number;
+  month: number;
+  date: number;
+}
+
+export interface AutomaticWeekday {
+  day: number;
+}
+
+export interface CalendarDate {
+  index: number;
+  date: number;
+  day: number;
+  month: number;
+  timestamp: number;
+  dayString: string;
+  isDiffMonth: boolean;
+  isToday: boolean;
+  selected: boolean;
+}
+
+export interface Calendar {
+  selectedDates: Array<number>;
+  month: number;
+  year: number;
+}
+
+export type ManualTimings = Array<Timing>;
+
+export type AutomaticTimings = Array<AutomaticTiming>;
+
 // ------ Enums ------
 
 export enum StatusType {
-  None = "NONE",
-  Off = "OFF",
-  On = "ON",
-  Waiting = "WAITING",
-  Processing = "PROCESSING",
+  None = -3,
+  Off = 0,
+  On = 1,
+  Waiting = -2,
+  Processing = -1,
 }
 
 export enum DeviceType {
   None = "NONE",
   Light = "LIGHT",
+  RgbLight = "RGB_LIGHT",
   TemperatureSensor = "TEMPERATURE_SENSOR",
 }
 
@@ -160,6 +234,7 @@ export enum ErrorType {
 }
 
 export enum TimingType {
+  None = "NONE",
   Toggle = "TOGGLE",
   Pulse = "PULSE",
 }
@@ -173,9 +248,8 @@ export enum MutationType {
   ClearConnectedModules = "CLEAR_CONNECTED_MODULES",
   SetDevices = "SET_DEVICES",
   AddDevice = "ADD_DEVICE",
-  RemoveDevice = "REMOVE_DEVICE",
+  RemoveDevices = "REMOVE_DEVICES",
   SetConfiguration = "SET_CONFIGURATION",
-  SetManualTiming = "SET_MANUAL_TIMING",
 }
 
 // Action types
@@ -187,9 +261,8 @@ export enum ActionsType {
   ClearConnectedModules = "clearConnectedModules",
   SetDevices = "setDevices",
   AddDevice = "addDevice",
-  RemoveDevice = "removeDevice",
+  RemoveDevices = "removeDevices",
   SetConfiguration = "setConfiguration",
-  SetManualTiming = "setManualTiming",
 }
 
 // Getters types
@@ -199,7 +272,6 @@ export enum GettersType {
   IsModuleConnected = "isModuleConnected",
   GetDevices = "getDevices",
   GetConfiguration = "getConfiguration",
-  GetManualTiming = "getManualTiming",
 }
 
 export enum ModulesType {
@@ -250,30 +322,49 @@ export enum SocketRooms {
 
 // ------ Initializers ------
 
-export function emptyStatus(): DeviceStatus {
-  return {
-    currentStatus: StatusType.None,
-    futureStatus: StatusType.None,
-    lastStatus: StatusType.None,
-  };
+export function emptyStatus(type?: DeviceType): DeviceStatus {
+  if (type === DeviceType.RgbLight) {
+    return {
+      currentStatus: StatusType.None,
+      futureStatus: StatusType.None,
+      lastStatus: StatusType.None,
+      redValue: 0,
+      blueValue: 0,
+      greenValue: 0,
+    } as RgbLightStatus;
+  } else {
+    return {
+      currentStatus: StatusType.None,
+      futureStatus: StatusType.None,
+      lastStatus: StatusType.None,
+    };
+  }
 }
 
-export function emptySettings(): BasicSettings {
-  return {
-    timings: {
-      timer: {},
-      manualTimings: {
-        pulseTiming: {
-          pulseDelay: emptyTime(),
-          pulseTimeout: emptyTime(),
-        },
-        toggleTiming: {
-          toggleDelay: emptyTime(),
-        },
+export function emptySettings(type?: DeviceType): BasicSettings {
+  var value: BasicSettings = {
+    timer: {},
+    manualTimings: [
+      {
+        type: ManualTimingType.PulseDelay,
+        time: emptyTime(),
       },
-    },
+      {
+        type: ManualTimingType.PulseTimeout,
+        time: emptyTime(),
+      },
+      {
+        type: ManualTimingType.ToggleDelay,
+        time: emptyTime(),
+      },
+    ],
+    automaticTimings: [],
     timeoutTime: getTimeFromMs(3000),
   };
+  if (type === DeviceType.RgbLight) {
+    value = Object.assign(value, { color: emptyColor() });
+  }
+  return value;
 }
 
 export function emptyTime(): Time {
@@ -281,6 +372,14 @@ export function emptyTime(): Time {
     hour: 0,
     minute: 0,
     second: 0,
+  };
+}
+
+export function emptyColor(): Color {
+  return {
+    red: 0,
+    green: 0,
+    blue: 0,
   };
 }
 

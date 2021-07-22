@@ -5,7 +5,6 @@ import historyApi from "connect-history-api-fallback";
 import path from "path";
 import {
   BasicDevice,
-  BasicSettings,
   Client,
   ClientCommands,
   ClientConfiguration,
@@ -14,15 +13,17 @@ import {
   DeviceType,
   emptySettings,
   emptyStatus,
+  emptyTime,
   getMsFromTime,
   getTimeFromMs,
   Light,
+  ManualTimings,
+  ManualTimingType,
   Module,
   ModuleCommands,
+  RgbLight,
   SocketRooms,
   StatusType,
-  TemperatureSensor,
-  Time,
   Timer,
   TimingType,
 } from "../types";
@@ -34,6 +35,8 @@ const io = new SocketIO.Server(http, {
   cors: {
     origin: "*",
   },
+  pingTimeout: 5000,
+  pingInterval: 3000,
 });
 
 /* Lumenite Flow:
@@ -142,51 +145,66 @@ const io = new SocketIO.Server(http, {
     - module:device-pin-error
 */
 
+// const fruitsArray: any = [];
+
+// const banana = { isBlendable: true, blabla: 0 };
+// fruitsArray.push(banana);
+
+// const arrayBanana = getBanana();
+
+// arrayBanana.isBlendable = false;
+// arrayBanana.blabla = 10000000000;
+
+// console.log(fruitsArray[0]);
+
+// function getBanana() {
+//   return fruitsArray[0];
+// }
+
 //5 12     4 14
 const moduleToken1 = "fjqX1cLaviE715jb";
 const moduleToken2 = "vpfGfzzeVxjZ9nS2";
 
-var devices: Array<BasicDevice> = [
+const devices: Array<BasicDevice> = [
   {
     id: 0,
-    name: "Light 1",
-    type: DeviceType.Light,
-    configuration: { pinConfiguration: { pin: 5, pinCheck: 12 }, moduleToken: moduleToken1, isAnalog: false },
-    status: emptyStatus(),
-    settings: emptySettings(),
-  } as Light,
+    name: "نور کف",
+    type: DeviceType.RgbLight,
+    configuration: {
+      pinConfiguration: { pin: 22, pinCheck: 23, redPin: 4, greenPin: 3, bluePin: 2 },
+      moduleToken: moduleToken2,
+      isAnalog: false,
+      isSubmodule: true,
+      isInverted: false,
+    },
+    status: emptyStatus(DeviceType.RgbLight),
+    settings: emptySettings(DeviceType.RgbLight),
+    isConnected: false,
+  } as RgbLight,
   {
     id: 1,
-    name: "Light 2",
+    name: "نور سقف",
     type: DeviceType.Light,
-    configuration: { pinConfiguration: { pin: 4, pinCheck: 14 }, moduleToken: moduleToken1, isAnalog: false },
+    configuration: {
+      pinConfiguration: { pin: 24 },
+      moduleToken: moduleToken2,
+      isAnalog: false,
+      isSubmodule: true,
+      isInverted: true,
+    },
     status: emptyStatus(),
     settings: emptySettings(),
+    isConnected: false,
   } as Light,
-  {
-    id: 2,
-    name: "Light 3",
-    type: DeviceType.Light,
-    configuration: { pinConfiguration: { pin: 5, pinCheck: 12 }, moduleToken: moduleToken2, isAnalog: false },
-    status: emptyStatus(),
-    settings: emptySettings(),
-  } as Light,
-  {
-    id: 3,
-    name: "Light 4",
-    type: DeviceType.Light,
-    configuration: { pinConfiguration: { pin: 4, pinCheck: 14 }, moduleToken: moduleToken2, isAnalog: false },
-    status: emptyStatus(),
-    settings: emptySettings(),
-  } as Light,
-  {
-    id: 4,
-    name: "Temperature Sensor 1",
-    type: DeviceType.TemperatureSensor,
-    configuration: { pinConfiguration: { pin: 13 }, moduleToken: moduleToken1, isAnalog: false },
-    status: emptyStatus(),
-    settings: emptySettings(),
-  } as TemperatureSensor,
+  // {
+  //   id: 10,
+  //   name: "Temperature Sensor 1",
+  //   type: DeviceType.TemperatureSensor,
+  //   configuration: { pinConfiguration: { pin: 13 }, moduleToken: moduleToken1, isAnalog: false, isSubmodule: false },
+  //   status: emptyStatus(),
+  //   settings: emptySettings(),
+  //   isConnected: false,
+  // } as TemperatureSensor,
 ];
 
 const ignoredDevices: Array<number> = [];
@@ -199,96 +217,112 @@ const modules: Array<Module> = [];
 const clients: Array<Client> = [];
 
 var setTimer: Function;
+var count = 0;
+var hasDisconnected = false;
 
 io.on("connection", (socket) => {
   socket.on(ClientCommands.Set, () => {
     console.log("Client connect");
     socket.join(SocketRooms.ClientsRoom);
+
     var connectedClient: Client = { id: socket.id, isReady: false, isConfigured: false };
     clients.push(connectedClient);
+
     socket.emit(ClientCommands.CloudConnect);
     socket.emit(ClientCommands.Configure, clientConfiguration);
+
     socket.on(ClientCommands.ConfigureResponse, () => {
       connectedClient.isReady = true;
+
       io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetConnectedCount, clients.length);
+      socket.emit(ClientCommands.SetDevices, devices);
       modules.forEach((value) => {
         socket.emit(ClientCommands.ModuleConnect, value);
       });
+
       initPossibleClients();
     });
+
     socket.on(ClientCommands.SetDevicesResponse, () => {
       connectedClient.isConfigured = true;
     });
-    socket.on(ClientCommands.ChangeDeviceStatus, (device: BasicDevice, timingMode: TimingType) => {
-      var index = devices.findIndex((x) => x.id === device.id);
 
-      var filteredDevice: Device = { id: device.id, name: device.name, status: device.status, type: device.type };
-      var deviceManualTiming = devices.find((x) => x.id === device.id)?.settings.timings?.manualTimings;
+    socket.on(ClientCommands.ChangeDeviceStatus, (basicDevice: BasicDevice, timingMode: TimingType) => {
+      var originalDevice: BasicDevice = getDevice(basicDevice.id);
 
-      var status: DeviceStatus = {
+      var manualTiming = getManualTiming(basicDevice);
+
+      var newStatus: DeviceStatus = {
         currentStatus: StatusType.Waiting,
-        futureStatus: device.status.futureStatus,
-        lastStatus: device.status.lastStatus,
+        futureStatus: basicDevice.status.futureStatus,
+        lastStatus: basicDevice.status.lastStatus,
       };
-      if (timingMode === TimingType.Toggle && getMsFromTime(deviceManualTiming?.toggleTiming?.toggleDelay) !== 0) {
-        var newDevice: Device = { id: device.id, name: device.name, status: status, type: device.type };
-        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, newDevice);
-        devices[index].status = status;
+      if (originalDevice.configuration.isInverted) {
+        newStatus.futureStatus = getInvertedStatus(basicDevice).futureStatus;
+        newStatus.lastStatus = getInvertedStatus(basicDevice).lastStatus;
+      }
+
+      if (timingMode === TimingType.Toggle && hasTiming(timingMode, manualTiming)) {
+        originalDevice.status = newStatus;
+        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, basicDeviceAsDevice(originalDevice));
         addTimeout(
-          device.id,
+          originalDevice.id,
           () => {
-            io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, filteredDevice);
+            io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, basicDeviceAsDevice(originalDevice));
           },
-          getMsFromTime(deviceManualTiming?.toggleTiming?.toggleDelay)
+          getMsFromTime(getTiming(ManualTimingType.ToggleDelay, manualTiming))
         );
-      } else if (
-        timingMode === TimingType.Pulse &&
-        (getMsFromTime(deviceManualTiming?.pulseTiming?.pulseDelay) !== 0 ||
-          getMsFromTime(deviceManualTiming?.pulseTiming?.pulseTimeout) !== 0)
-      ) {
-        var newDevice: Device = { id: device.id, name: device.name, status, type: device.type };
-        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, newDevice);
-        devices[index].status = status;
+      } else if (timingMode === TimingType.Pulse && hasTiming(timingMode, manualTiming)) {
+        originalDevice.status = newStatus;
+        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, basicDeviceAsDevice(originalDevice));
         addTimeout(
-          device.id,
+          originalDevice.id,
           () => {
-            ignoredDevices.push(device.id);
-            io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, filteredDevice);
-            var temp = { status: status.futureStatus };
-            status.futureStatus = status.lastStatus;
-            status.lastStatus = temp.status;
-            io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, newDevice);
-            devices[index].status = status;
+            ignoredDevices.push(originalDevice.id);
+            io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, basicDeviceAsDevice(originalDevice));
+            swapStatus(originalDevice.status);
+            io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, basicDeviceAsDevice(originalDevice));
             addTimeout(
-              device.id,
+              originalDevice.id,
               () => {
-                var index = ignoredDevices.findIndex((x) => x === device.id);
+                var index = ignoredDevices.findIndex((x) => x === originalDevice.id);
                 ignoredDevices.splice(index, 1);
-                io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, newDevice);
+                io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, basicDeviceAsDevice(originalDevice));
               },
-              getMsFromTime(deviceManualTiming?.pulseTiming?.pulseTimeout)
+              getMsFromTime(getTiming(ManualTimingType.PulseTimeout, manualTiming))
             );
           },
-          getMsFromTime(deviceManualTiming?.pulseTiming?.pulseDelay)
+          getMsFromTime(getTiming(ManualTimingType.PulseDelay, manualTiming))
         );
       } else {
-        io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, filteredDevice);
+        originalDevice.status = basicDevice.status;
+        if (originalDevice.configuration.isInverted) {
+          originalDevice.status.futureStatus = getInvertedStatus(basicDevice).futureStatus;
+          originalDevice.status.lastStatus = getInvertedStatus(basicDevice).lastStatus;
+        }
+        //console.log(originalDevice.status);
+        io.sockets.in(SocketRooms.ModulesRoom).emit(ModuleCommands.ChangeDeviceStatus, basicDeviceAsDevice(originalDevice));
       }
     });
-    socket.on(ClientCommands.ChangeDeviceSettings, (device: BasicDevice, newSettings: BasicSettings) => {
-      var index = devices.findIndex((x) => x.id === device.id);
-      devices[index].settings = newSettings;
-      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceSettingsChanged, device, newSettings);
+
+    socket.on(ClientCommands.ChangeDeviceSettings, (device: BasicDevice) => {
+      const originalDevice = getDevice(device.id);
+      originalDevice.settings = device.settings;
+      console.log(originalDevice.settings.automaticTimings);
+      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceSettingsChanged, originalDevice);
     });
-    socket.on(ClientCommands.SetTimer, (device: Device, timer: Timer) => {
-      setTimer(device, timer);
+
+    socket.on(ClientCommands.SetTimer, (deviceId: number, timer: Timer) => {
+      setTimer(deviceId, timer);
     });
+
     socket.on("disconnect", () => {
       var index = clients.findIndex((x) => x.id === socket.id);
-      console.log("Client disconnect");
       clients.splice(index, 1);
       io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetConnectedCount, clients.length);
       socket.removeAllListeners(ClientCommands.Set);
+
+      console.log("Client disconnect");
     });
   });
 
@@ -305,98 +339,144 @@ io.on("connection", (socket) => {
       devices
         .filter((x) => x.configuration.moduleToken === connectedModule.token)
         .map((x) => {
-          return { pinConfiguration: x.configuration.pinConfiguration, id: x.id, type: x.type, isAnalog: x.configuration.isAnalog };
+          return {
+            pinConfiguration: x.configuration.pinConfiguration,
+            id: x.id,
+            type: x.type,
+            isAnalog: x.configuration.isAnalog,
+            isSubmodule: x.configuration.isSubmodule,
+          };
         })
     );
+
     socket.on(ModuleCommands.SetToken, () => {
       var newToken = generateRandomToken();
       socket.emit(ModuleCommands.SetToken, newToken);
       socket.disconnect();
     });
+
     socket.on(ModuleCommands.ConfigureResponse, () => {
+      devices.forEach((value) => {
+        if (value.configuration.isInverted) {
+          const originalDevice = getDevice(value.id);
+          originalDevice.status.futureStatus = getInvertedStatus(originalDevice).futureStatus;
+          socket.emit(ModuleCommands.ChangeDeviceStatus, basicDeviceAsDevice(originalDevice));
+        }
+      });
       connectedModule.isReady = true;
       initPossibleClients();
     });
+
     socket.on(ModuleCommands.SetDevicesStatus, (moduleDevices: Array<Device>) => {
       moduleDevices.forEach((value) => {
-        var device = devices.find((x) => x.id === value.id);
-        if (device?.status.currentStatus !== StatusType.Waiting) {
-          device!.status = value.status;
+        var originalDevice = getDevice(value.id);
+        if (originalDevice.status.currentStatus !== StatusType.Waiting) {
+          originalDevice.status = value.status;
+          if (originalDevice.configuration.isInverted)
+            originalDevice.status.currentStatus = getInvertedStatus(originalDevice).currentStatus;
         }
+        if (hasDisconnected === false) {
+          hasDisconnected = originalDevice.isConnected === false;
+          Object.freeze(hasDisconnected);
+        }
+        originalDevice.isConnected = true;
       });
       connectedModule.isResponded = true;
       if (modules.filter((x) => x.isResponded).length >= modules.length) {
         modules.forEach((value) => (value.isResponded = false));
-        clients.forEach((value) => {
-          if (!value.isConfigured) {
-            io.sockets.in(value.id).emit(ClientCommands.SetDevices, devices);
+        // if (!clients.some((x) => x.isConfigured)) {
+        //   io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetDevices, devices);
+        // }
+        for (const client of clients) {
+          if (!client.isConfigured) {
+            count++;
+            client.isConfigured = true;
+            io.sockets.in(client.id).emit(ClientCommands.SetDevices, devices);
+          } else if (client.isConfigured && hasDisconnected) {
+            io.sockets.in(client.id).emit(ClientCommands.SetDevices, devices);
           }
-        });
+        }
+
+        hasDisconnected = false;
       }
     });
+
     socket.on(ModuleCommands.DeviceStatusChanged, (device: Device) => {
       if (ignoredDevices.some((x) => x === device.id)) return;
-      var index = devices.findIndex((x) => x.id === device.id);
-      device.status.futureStatus = devices[index].status.futureStatus;
-      device.status.lastStatus = devices[index].status.lastStatus;
-      devices[index].status.currentStatus = device.status.currentStatus;
-      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, device);
+      const originalDevice: BasicDevice = getDevice(device.id);
+      if (originalDevice.configuration.isInverted) device.status.currentStatus = getInvertedStatus(device).currentStatus;
+      originalDevice.status.currentStatus = device.status.currentStatus;
+      Object.assign(originalDevice.status, device.status);
+      console.log(originalDevice.status);
+      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, basicDeviceAsDevice(originalDevice));
     });
+
     socket.on(ModuleCommands.DevicePinError, (device: Device) => {
-      var index = devices.findIndex((x) => x.id === device.id);
-      device.name = devices[index].name;
-      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DevicePinError, device);
+      const originalDevice: BasicDevice = getDevice(device.id);
+      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DevicePinError, originalDevice);
     });
+
     socket.on("disconnect", () => {
       console.log("Module disconnect");
+      devices.forEach((value) => {
+        if (value.configuration.moduleToken === connectedModule.token) {
+          value.status = emptyStatus();
+          value.isConnected = false;
+        }
+      });
+      io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetDevices, devices);
+
       var index = modules.findIndex((x) => x.id === socket.id);
       modules.splice(index, 1);
       io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.ModuleDisconnect, connectedModule);
       socket.removeAllListeners(ModuleCommands.Set);
     });
   });
-  socket.onAny((name: string) => {
-    console.log(name);
-  });
+  // socket.onAny((name: string) => {
+  //   console.log(name);
+  // });
 
   function addTimeout(deviceId: number, toRun: Function, delay: number) {
-    var index = devices.findIndex((x) => x.id === deviceId);
+    const originalDevice: BasicDevice = getDevice(deviceId);
     var timePassed = 0;
     io.sockets
       .in(SocketRooms.ClientsRoom)
       .emit(ClientCommands.SetTimer, deviceId, { timeLeft: getTimeFromMs(delay - timePassed) } as Timer);
-    devices[index].settings.timings!.timer = { timeLeft: getTimeFromMs(delay - timePassed) };
+    originalDevice.settings.timer = { timeLeft: getTimeFromMs(delay - timePassed) };
 
     var interval = setInterval(() => {
       timePassed += 1000;
       io.sockets
         .in(SocketRooms.ClientsRoom)
         .emit(ClientCommands.SetTimer, deviceId, { timeLeft: getTimeFromMs(delay - timePassed) } as Timer);
-      devices[index].settings.timings!.timer = { timeLeft: getTimeFromMs(delay - timePassed) };
+      originalDevice.settings.timer = { timeLeft: getTimeFromMs(delay - timePassed) };
     }, 1000);
 
     var timeout = setTimeout(() => {
       io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetTimer, deviceId, undefined);
-      devices[index].settings.timings!.timer = undefined;
+      originalDevice.settings.timer = undefined;
       toRun();
       clearInterval(interval);
     }, delay);
 
-    setTimer = (device: Device, timer: Timer) => {
-      if (device.id !== deviceId) return;
+    setTimer = (id: number, timer: Timer) => {
+      if (id !== deviceId) return;
+      const originalDevice: BasicDevice = getDevice(id);
       if (!timer) {
         clearTimeout(timeout);
         clearInterval(interval);
         var newStatus: DeviceStatus = {
-          currentStatus: device.status.lastStatus,
+          currentStatus: originalDevice.status.lastStatus,
           futureStatus: StatusType.None,
           lastStatus: StatusType.None,
         };
-        var newDevice: Device = { id: device.id, name: device.name, status: newStatus, type: device.type };
-        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetTimer, deviceId, undefined);
-        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, newDevice);
-        devices[index].settings.timings!.timer = undefined;
-        devices[index].status.currentStatus = newStatus.currentStatus;
+        if (originalDevice.configuration.isInverted) newStatus.currentStatus = getInvertedStatus(originalDevice).lastStatus;
+        originalDevice.settings.timer = undefined;
+        originalDevice.status = newStatus;
+        var ignoredIndex = ignoredDevices.findIndex((x) => x === originalDevice.id) | 0;
+        ignoredDevices.splice(ignoredIndex, 1);
+        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.SetTimer, id, undefined);
+        io.sockets.in(SocketRooms.ClientsRoom).emit(ClientCommands.DeviceStatusChanged, basicDeviceAsDevice(originalDevice));
       }
     };
   }
@@ -418,11 +498,66 @@ function generateRandomToken() {
   return result;
 }
 
+function getDevice(id: number): BasicDevice {
+  return devices.find((x) => x.id === id) || devices[0];
+}
+
+function getInvertedStatus(device: Device, isAnalog: boolean = false) {
+  var currentStatus: number, futureStatus: number, lastStatus: number;
+  if (!isAnalog) {
+    futureStatus = device.status.futureStatus == 1 ? 0 : 1;
+    currentStatus = device.status.currentStatus == 1 ? 0 : 1;
+    lastStatus = device.status.lastStatus == 1 ? 0 : 1;
+  } else {
+    futureStatus = 255 - device.status.futureStatus;
+    currentStatus = 255 - device.status.currentStatus;
+    lastStatus = 255 - device.status.lastStatus;
+  }
+  const status: DeviceStatus = { currentStatus, futureStatus, lastStatus };
+  return status;
+}
+
+function basicDeviceAsDevice(basicDevice: BasicDevice): Device {
+  var device: Device = { id: basicDevice.id, name: basicDevice.name, status: basicDevice.status, type: basicDevice.type };
+  return device;
+}
+
+function getManualTiming(basicDevice: BasicDevice): ManualTimings {
+  return basicDevice.settings.manualTimings;
+}
+
+function getTiming(type: ManualTimingType, timings: ManualTimings) {
+  return timings.find((x) => x.type === type)?.time || emptyTime();
+}
+
+function hasTiming(type: TimingType, timings: ManualTimings): boolean {
+  if (type === TimingType.Toggle) {
+    var toggleDelay = getMsFromTime(getTiming(ManualTimingType.ToggleDelay, timings));
+    return toggleDelay !== 0;
+  } else if (type === TimingType.Pulse) {
+    var pulseDelay = getMsFromTime(getTiming(ManualTimingType.PulseDelay, timings));
+    var pulseTimeout = getMsFromTime(getTiming(ManualTimingType.PulseTimeout, timings));
+    return pulseDelay !== 0 || pulseTimeout !== 0;
+  }
+  return false;
+}
+
+function swapStatus(status: DeviceStatus) {
+  const temp = status.futureStatus;
+  Object.freeze(temp);
+  status.futureStatus = status.lastStatus;
+  status.lastStatus = temp;
+}
+
 app.use(historyApi());
 
 app.use("/", express.static(filePath));
 
 // http.listen({ host: "192.168.1.115", port: port }, () => {
+//   console.log(`Listening on port *:${port}`);
+// });
+
+// http.listen({ host: "192.168.1.102", port: port }, () => {
 //   console.log(`Listening on port *:${port}`);
 // });
 

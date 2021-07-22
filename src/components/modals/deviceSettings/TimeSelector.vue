@@ -4,7 +4,7 @@
         <div class="flex">
             <Listbox v-model="state.time.hour" class="w-10">
                 <div class="relative">
-                    <ListboxButton class="relative w-full py-2 text-center bg-white border rounded-lg rounded-r-none shadow-md cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
+                    <ListboxButton class="relative w-full py-2 text-center bg-white border rounded-lg rounded-r-none shadow-sm cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
                         <span class="block truncate">{{ state.time.hour }}h</span>
                     </ListboxButton>
 
@@ -21,7 +21,7 @@
             </Listbox>
             <Listbox v-model="state.time.minute" class="w-10">
                 <div class="relative">
-                    <ListboxButton class="relative w-full py-2 text-center bg-white border shadow-md cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
+                    <ListboxButton class="relative w-full py-2 text-center bg-white border border-l-0 border-r-0 shadow-sm cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
                         <span class="block truncate">{{ state.time.minute }}m</span>
                     </ListboxButton>
 
@@ -38,7 +38,7 @@
             </Listbox>
             <Listbox v-model="state.time.second" class="w-10">
                 <div class="relative">
-                    <ListboxButton class="relative w-full py-2 text-center bg-white border rounded-lg rounded-l-none shadow-md cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
+                    <ListboxButton class="relative w-full py-2 text-center bg-white border rounded-lg rounded-l-none shadow-sm cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-orange-300 focus-visible:ring-offset-2 focus-visible:border-indigo-500 sm:text-sm">
                         <span class="block truncate">{{ state.time.second }}s</span>
                     </ListboxButton>
 
@@ -58,9 +58,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, PropType, reactive, watch } from "vue";
-import { ActionsType, emptyTime, GettersType, ManualTimingPayload, ManualTimingType, MutationType } from "../../../../types";
-import { useStore } from "../../../store/store";
+import { defineComponent, PropType, reactive, watch } from "vue";
+import { Timing } from "../../../../types";
 import { Listbox, ListboxOptions, ListboxOption, ListboxButton } from "@headlessui/vue";
 
 const times = {
@@ -73,7 +72,10 @@ export default defineComponent({
     name: "TimeSelector",
     props: {
         text: String,
-        afterChange: String,
+        data: {
+            type: Object as PropType<Timing>,
+            required: true,
+        },
     },
     components: {
         Listbox,
@@ -81,18 +83,13 @@ export default defineComponent({
         ListboxOption,
         ListboxButton,
     },
-    setup(props) {
-        const store = useStore();
+    setup(props, { emit }) {
         const state = reactive({
-            time: emptyTime(),
-        });
-
-        onMounted(() => {
-            state.time = store.getters[GettersType.GetManualTiming](props.afterChange);
+            time: props.data.time,
         });
 
         watch(state.time, () => {
-            store.dispatch(ActionsType.SetManualTiming, { type: props.afterChange, time: state.time } as ManualTimingPayload);
+            emit("update:data", { type: props.data.type, time: state.time } as Timing);
         });
 
         return {

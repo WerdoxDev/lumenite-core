@@ -24,7 +24,7 @@
                             </div>
                         </div>
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse items-center">
-                            <button type="button" class="w-full inline-flex rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm flex-shrink-0" @click="state.modal.isOpen = false" ref="cancelButtonRef">Got it</button>
+                            <button type="button" class="w-full inline-flex rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm flex-shrink-0" @click="state.modal.isOpen = false">Got it</button>
                             <p v-if="state.code" class="text-sm text-gray-500 text-left w-full mt-3 sm:mt-0">Code: {{ state.code }}</p>
                         </div>
                     </div>
@@ -56,7 +56,7 @@ export default defineComponent({
             code: "",
         });
 
-        function open(title: string, text: string, code: string = "") {
+        function open(title: string, text: string, code = "") {
             state.modal.title = title;
             state.modal.text = text;
             state.code = code;
