@@ -1,10 +1,9 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import { io } from 'socket.io-client';
-import { store, key } from './store/store';
-import './styles/index.css';
+import { createApp } from "vue";
+import App from "./App.vue";
+import { useRouter } from "./router/router";
+import { store, key } from "./store/store-old";
+import "./styles/index.css";
 
-const socket = io("https://lumenite.matin-tat.ir", { autoConnect: false });
+const router = useRouter();
 
-const app = createApp(App).use(store, key).mount('#app');
-
+const app = createApp(App).use(router).mount("#app");

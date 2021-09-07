@@ -11,7 +11,7 @@
                             <template v-for="(item, itemIdx) in navigation" :key="item">
                                 <template v-if="itemIdx === 0">
                                     <!-- Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white" -->
-                                    <a href="#" class="bg-gray-900 text-white px-3 py-2 rounded-md text-md font-medium">{{ item }}</a>
+                                    <router-link to="/dashboard" class="no-underline bg-gray-900 text-white px-3 py-2 rounded-md font-medium">{{ item }}</router-link>
                                 </template>
                                 <a v-else href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">{{ item }}</a>
                             </template>
@@ -24,7 +24,6 @@
                         <Menu as="div" class="ml-3 relative">
                             <div>
                                 <MenuButton class="max-w-xs bg-gray-800 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
-                                    <span class="sr-only">Open user menu</span>
                                     <img class="h-8 w-8 rounded-full" src="../assets/werdox.png" alt="" />
                                 </MenuButton>
                             </div>
@@ -41,7 +40,6 @@
                 <div class="-mr-2 flex md:hidden">
                     <!-- Mobile menu button -->
                     <DisclosureButton class="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
-                        <span class="sr-only">Open main menu</span>
                         <MenuIcon v-if="!open" class="block h-6 w-6" aria-hidden="true" />
                         <XIcon v-else class="block h-6 w-6" aria-hidden="true" />
                     </DisclosureButton>
@@ -69,7 +67,6 @@
                         <div class="text-sm font-medium leading-none text-gray-400">matin.tat85@gmail.com</div>
                     </div>
                     <button class="ml-auto bg-gray-800 flex-shrink-0 p-1 rounded-full text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
-                        <span class="sr-only">View notifications</span>
                         <BellIcon class="h-6 w-6" aria-hidden="true" />
                     </button>
                 </div>
@@ -80,8 +77,8 @@
         </DisclosurePanel>
     </Disclosure>
     <header class="bg-white shadow">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div class="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
+            <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
         </div>
     </header>
 </template>
@@ -95,7 +92,6 @@ const navigation = ["Dashboard"];
 const profile = ["Your Profile", "Settings", "Sign out"];
 
 export default defineComponent({
-    name: "NavBar",
     components: {
         Disclosure,
         DisclosureButton,

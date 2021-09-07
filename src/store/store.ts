@@ -1,102 +1,54 @@
-import { io } from "socket.io-client";
-import { InjectionKey } from "vue";
-import { useStore as baseUseStore, Store, createStore } from "vuex";
-import { State, MutationType, ActionsType, GettersType, ClientConfiguration, Module, BasicDevice, ModulesType } from "../../types";
+import mqtt from "mqtt/dist/mqtt.min";
+import { reactive } from "vue";
+import { BasicDeviceClass } from "../../classes";
+import { ClientConfiguration, getRandomId, State } from "../../types";
 
-export const key: InjectionKey<Store<State>> = Symbol();
-
-export const store = createStore<State>({
-  state: {
-    socket: io("https://lumenite.matin-tat.ir", { autoConnect: false }),
-    // socket: io("http://192.168.1.115:3001", { autoConnect: false }),
+export const store = {
+  state: reactive<State>({
+    mqtt: undefined,
+    id: getRandomId(),
     // socket: io("http://192.168.1.102:3001", { autoConnect: false }),
     devices: [],
-    configuration: { registeredModuleTokens: [] },
+    config: { registeredModuleTokens: [] },
     isUserLoggedIn: false,
     isCloudConnected: false,
-    connectedModules: [],
-  },
-  mutations: {
-    [MutationType.SetUserLoggedIn](state: State, isLoggedIn: boolean) {
-      state.isUserLoggedIn = isLoggedIn;
-    },
-    [MutationType.SetCloudConnected](state: State, isCloudConnected: boolean) {
-      state.isCloudConnected = isCloudConnected;
-    },
-    [MutationType.AddConnectedModule](state: State, module: Module) {
-      if (state.connectedModules.some((x) => x.token === module.token)) return;
-      state.connectedModules.push(module);
-    },
-    [MutationType.RemoveConnectedModule](state: State, module: Module) {
-      var index = state.connectedModules.findIndex((x) => x.token === module.token);
-      state.connectedModules.splice(index, 1);
-    },
-    [MutationType.ClearConnectedModules](state: State) {
-      state.connectedModules.splice(0, state.connectedModules.length);
-    },
-    [MutationType.SetDevices](state: State, devices: Array<BasicDevice>) {
-      devices.forEach((value) => {
-        state.devices.push(value);
-      });
-    },
-    [MutationType.AddDevice](state: State, device: BasicDevice) {
-      state.devices.push(device);
-    },
-    [MutationType.RemoveDevices](state: State) {
-      state.devices.splice(0, state.devices.length);
-    },
-    [MutationType.SetConfiguration](state: State, configuration: ClientConfiguration) {
-      state.configuration = configuration;
-    },
-  },
-  actions: {
-    [ActionsType.SetUserLoggedIn]({ commit }, isLoggedIn: boolean) {
-      commit(MutationType.SetUserLoggedIn, isLoggedIn);
-    },
-    [ActionsType.SetCloudConnected]({ commit }, isCloudConnected: boolean) {
-      commit(MutationType.SetCloudConnected, isCloudConnected);
-    },
-    [ActionsType.AddConnectedModule]({ commit }, module: Module) {
-      commit(MutationType.AddConnectedModule, module);
-    },
-    [ActionsType.ClearConnectedModules]({ commit }) {
-      commit(MutationType.ClearConnectedModules);
-    },
-    [ActionsType.RemoveConnectedModule]({ commit }, module: Module) {
-      commit(MutationType.RemoveConnectedModule, module);
-    },
-    [ActionsType.SetDevices]({ commit }, devices: Array<BasicDevice>) {
-      commit(MutationType.SetDevices, devices);
-    },
-    [ActionsType.AddDevice]({ commit }, device: BasicDevice) {
-      commit(MutationType.AddDevice, device);
-    },
-    [ActionsType.RemoveDevices]({ commit }) {
-      commit(MutationType.RemoveDevices);
-    },
-    [ActionsType.SetConfiguration]({ commit }, configuration: ClientConfiguration) {
-      commit(MutationType.SetConfiguration, configuration);
-    },
-  },
-  getters: {
-    [GettersType.IsUserLoggedIn](state: State) {
-      return state.isUserLoggedIn;
-    },
-    [GettersType.IsCloudConnected](state: State) {
-      return state.isCloudConnected;
-    },
-    [GettersType.IsModuleConnected]: (state: State) => (token: string) => {
-      return state.connectedModules.some((x) => x.token === token);
-    },
-    [GettersType.GetDevices](state: State) {
-      return state.devices;
-    },
-    [GettersType.GetConfiguration](state: State) {
-      return state.configuration;
-    },
-  },
-});
+  }),
 
-export function useStore() {
-  return baseUseStore(key);
-}
+  connectMqtt() {
+    this.state.mqtt = mqtt.connect("ws://192.168.1.115:8080", mqttOptions);
+  },
+  disconnectMqtt() {
+    this.state.mqtt?.publish("client/offline", this.state.id);
+    this.state.mqtt?.removeAllListeners();
+    this.state.mqtt?.end();
+  },
+  setDevices(devices: Array<BasicDeviceClass>) {
+    this.state.devices.splice(0, this.state.devices.length);
+    devices.forEach((x) => {
+      this.state.devices.push(x);
+    });
+  },
+  setConfiguration(config: ClientConfiguration) {
+    this.state.config = config;
+  },
+  setUsedLoggedIn(loggedIn: boolean) {
+    this.state.isUserLoggedIn = loggedIn;
+  },
+  setCloudConnected(connected: boolean) {
+    this.state.isCloudConnected = connected;
+  },
+};
+
+const mqttOptions: mqtt.IClientOptions = {
+  // host: "211b94aa7734472e8c384db21d25fc6d.s2.eu.hivemq.cloud",
+  // username: "lumenite",
+  // password: "Lumenite2021",
+  keepalive: 15,
+  will: {
+    topic: `client/offline`,
+    payload: store.state.id,
+    qos: 0,
+    retain: false,
+  },
+  // protocol: "mqtts",
+};

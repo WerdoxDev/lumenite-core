@@ -42,7 +42,6 @@ import { ExclamationIcon } from "@heroicons/vue/outline";
 import { ModalState } from "../../../types";
 
 export default defineComponent({
-    name: "WarningModal",
     components: {
         TransitionRoot,
         TransitionChild,

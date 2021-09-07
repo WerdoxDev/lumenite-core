@@ -16,22 +16,19 @@
 
 <script lang="ts">
 import { defineComponent, reactive } from "vue";
-import { ActionsType } from "../../types";
-import { useStore } from "../store/store";
+import { useRouter } from "../router/router";
+import { store } from "../store/store";
 
 export default defineComponent({
-    name: "Login",
     setup() {
-        const store = useStore();
-
+        const router = useRouter();
         const state = reactive({
             enteredPassword: "",
         });
 
         function login() {
             if (state.enteredPassword != "123") return;
-            store.dispatch(ActionsType.SetUserLoggedIn, true);
-            store.state.socket.connect();
+            router.push({ path: "/dashboard" });
         }
 
         return {

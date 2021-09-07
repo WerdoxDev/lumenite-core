@@ -7,10 +7,52 @@
 			"problemMatcher": [],
 			"label": "npm: dev",
 			"detail": "vite --host",
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
+			"group": "build"
+		},
+		{
+			"type": "npm",
+			"script": "build",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: build",
+			"detail": "vue-tsc --noEmit && vite build"
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "server/tsconfig.json",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build",
+			"label": "tsc: build - server/tsconfig.json"
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "server/tsconfig.json",
+			"option": "watch",
+			"problemMatcher": [
+				"$tsc-watch"
+			],
+			"group": "build",
+			"label": "tsc: watch - server/tsconfig.json"
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "tsconfig.json",
+			"option": "watch",
+			"problemMatcher": [
+				"$tsc-watch"
+			],
+			"group": "build",
+			"label": "tsc: watch - tsconfig.json"
+		},
+		{
+			"type": "npm",
+			"script": "start",
+			"path": "server/",
+			"problemMatcher": [],
+			"label": "npm: start - server",
+			"detail": "nodemon ./server.ts"
 		}
 	]
 }

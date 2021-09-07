@@ -1,6 +1,7 @@
 <template>
-    <div class="w-full md:w-80 flex flex-col items-center">
-        <div @click="changeLightStatus" :class="`bg-${getColor}-400`" class="animate-rgbLight-body-popup relative h-56 w-full rounded-lg shadow-2xl cursor-pointer transform hover:scale-105 hover:-translate-y-2 focus:opacity-0 transition-all">
+    <div></div>
+    <!-- <div class="w-full md:w-80 flex flex-col items-center">
+        <div @click="changeLightStatus" :class="`bg-${getColor}-400`" class="animate-light-body-popup relative h-56 w-full rounded-lg shadow-2xl cursor-pointer transform hover:scale-105 hover:-translate-y-2 focus:opacity-0 transition-all">
             <div class="flex justify-center items-center flex-col h-full">
                 <h1 class="text-white font-bold text-4xl">{{ state.rgbLight.name }}</h1>
                 <p class="text-gray-200">{{ getStatusText }}</p>
@@ -13,7 +14,7 @@
                 </transition>
             </div>
         </div>
-        <div v-if="state.rgbLight.isConnected" class="animate-rgbLight-footer-popup h-16 bg-white rounded-lg z-10 relative -mt-3 w-11/12">
+        <div v-if="state.rgbLight.isConnected" class="animate-light-footer-popup h-16 bg-white rounded-lg z-10 relative -mt-3 w-11/12">
             <div class="flex items-center w-full h-full p-3">
                 <Listbox v-model="state.selectedMode" class="w-full">
                     <div class="relative mt-1">
@@ -43,172 +44,172 @@
         </div>
     </div>
     <ErrorModal ref="errorModal" class="hidden" />
-    <RgbLightSettingsModal ref="rgbLightSettingsModal" class="hidden" :deviceId="deviceId" />
+    <RgbLightSettingsModal ref="rgbLightSettingsModal" class="hidden" :deviceId="deviceId" /> -->
 </template>
 
-<script lang="ts">
-import { computed, ComputedRef, defineComponent, reactive, ref, onMounted, onUnmounted, watch, onUpdated } from "vue";
-import { Listbox, ListboxLabel, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
-import { ClientCommands, Device, DeviceStatus, emptyStatus, getMsFromTime, Light, RgbLight, RgbLightStatus, StatusType, Timer, TimingType } from "../../types";
-import { CogIcon } from "@heroicons/vue/outline";
-import { CheckIcon, SelectorIcon } from "@heroicons/vue/solid";
-import { useStore } from "../store/store";
-import RgbLightSettingsModal from "./modals/deviceSettings/RgbLightSettingsModal.vue";
-import ErrorModal from "./modals/ErrorModal.vue";
+// <script lang="ts">
+// import { computed, ComputedRef, defineComponent, reactive, ref, onMounted, onUnmounted, watch, onUpdated } from "vue";
+// import { Listbox, ListboxLabel, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
+// import { ClientCommands, Device, DeviceStatus, emptyStatus, getMsFromTime, Light, RgbLight, RgbLightStatus, StatusType } from "../../types";
+// import { CogIcon } from "@heroicons/vue/outline";
+// import { CheckIcon, SelectorIcon } from "@heroicons/vue/solid";
+// import { useStore } from "../store/store-old";
+// import RgbLightSettingsModal from "./modals/deviceSettings/RgbLightSettingsModal.vue";
+// import ErrorModal from "./modals/ErrorModal.vue";
 
-const colors = { [-3]: "purple", [1]: "green", [-2]: "blue", [-1]: "yellow", [0]: "red", OFFLINE: "pink" };
-const modes = [
-    { name: "Toggle", value: TimingType.Toggle },
-    { name: "Pulse", value: TimingType.Pulse },
-];
+// const colors = { [-3]: "purple", [1]: "green", [-2]: "blue", [-1]: "yellow", [0]: "red", OFFLINE: "pink" };
+// const modes = [
+//     { name: "Toggle", value: TimingType.Toggle },
+//     { name: "Pulse", value: TimingType.Pulse },
+// ];
 
-export default defineComponent({
-    name: "RgbLightDevice",
-    components: {
-        Listbox,
-        ListboxLabel,
-        ListboxButton,
-        ListboxOptions,
-        ListboxOption,
-        CheckIcon,
-        SelectorIcon,
-        CogIcon,
-        RgbLightSettingsModal,
-        ErrorModal,
-    },
-    props: {
-        deviceId: Number,
-    },
-    setup(props) {
-        const store = useStore();
+// export default defineComponent({
+//     components: {
+//         Listbox,
+//         ListboxLabel,
+//         ListboxButton,
+//         ListboxOptions,
+//         ListboxOption,
+//         CheckIcon,
+//         SelectorIcon,
+//         CogIcon,
+//         RgbLightSettingsModal,
+//         ErrorModal,
+//     },
+//     props: {
+//         deviceId: Number,
+//     },
+//     setup(props) {
+//         const store = useStore();
 
-        const errorModal = ref<InstanceType<typeof ErrorModal>>();
-        const rgbLightSettingsModal = ref<InstanceType<typeof RgbLightSettingsModal>>();
+//         const errorModal = ref<InstanceType<typeof ErrorModal>>();
+//         const rgbLightSettingsModal = ref<InstanceType<typeof RgbLightSettingsModal>>();
 
-        const state = reactive({
-            selectedMode: modes[0],
-            rgbLight: store.state.devices.find((x) => x.id === props.deviceId) as RgbLight,
-            colorStyle: "",
-        });
+//         const state = reactive({
+//             selectedMode: modes[0],
+//             rgbLight: store.state.devices.find((x) => x.id === props.deviceId) as RgbLight,
+//             colorStyle: "",
+//         });
 
-        var timeout;
+//         var timeout;
 
-        watch(store.state.devices, (newValue, oldValue) => {
-            state.rgbLight = newValue.find((x) => x.id === props.deviceId) as RgbLight;
-            state.colorStyle = `rgb(${255 - state.rgbLight.status.redValue},${255 - state.rgbLight.status.greenValue},${255 - state.rgbLight.status.blueValue})`;
-        });
+//         watch(store.state.devices, (newValue, oldValue) => {
+//             state.rgbLight = newValue.find((x) => x.id === props.deviceId) as RgbLight;
+//             state.colorStyle = `rgb(${255 - state.rgbLight.status.redValue},${255 - state.rgbLight.status.greenValue},${255 - state.rgbLight.status.blueValue})`;
+//         });
 
-        const getColor: ComputedRef<string> = computed(() => {
-            if (!state.rgbLight.isConnected) return colors["OFFLINE"];
-            return colors[getCurrentStatus()];
-        });
+//         const getColor: ComputedRef<string> = computed(() => {
+//             if (!state.rgbLight.isConnected) return colors["OFFLINE"];
+//             return colors[getCurrentStatus()];
+//         });
 
-        const getStatusText: ComputedRef<string> = computed(() => {
-            if (!state.rgbLight.isConnected) return "OFFLINE";
-            if (getCurrentStatus() === StatusType.Processing) return StatusType[getCurrentStatus()].toUpperCase() + "...";
-            return StatusType[getCurrentStatus()].toString().toUpperCase();
-        });
+//         const getStatusText: ComputedRef<string> = computed(() => {
+//             if (!state.rgbLight.isConnected) return "OFFLINE";
+//             if (getCurrentStatus() === StatusType.Processing) return StatusType[getCurrentStatus()].toUpperCase() + "...";
+//             return StatusType[getCurrentStatus()].toString().toUpperCase();
+//         });
 
-        const isTimerActive: ComputedRef<boolean> = computed(() => {
-            return state.rgbLight.settings.timer?.timeLeft ? true : false;
-        });
+//         const isTimerActive: ComputedRef<boolean> = computed(() => {
+//             return state.rgbLight.settings.timer?.timeLeft ? true : false;
+//         });
 
-        const getFormattedTime: ComputedRef<string> = computed(() => {
-            if (state.rgbLight.settings.timer?.timeLeft) {
-                var timer = state.rgbLight.settings.timer.timeLeft;
-                return (timer.hour >= 10 ? timer.hour.toString() : "0" + timer.hour.toString()) + ":" + (timer.minute >= 10 ? timer.minute.toString() : "0" + timer.minute.toString()) + ":" + (timer.second >= 10 ? timer.second.toString() : "0" + timer.second.toString());
-            }
-            return "00:00:00";
-        });
+//         const getFormattedTime: ComputedRef<string> = computed(() => {
+//             if (state.rgbLight.settings.timer?.timeLeft) {
+//                 var timer = state.rgbLight.settings.timer.timeLeft;
+//                 return (timer.hour >= 10 ? timer.hour.toString() : "0" + timer.hour.toString()) + ":" + (timer.minute >= 10 ? timer.minute.toString() : "0" + timer.minute.toString()) + ":" + (timer.second >= 10 ? timer.second.toString() : "0" + timer.second.toString());
+//             }
+//             return "00:00:00";
+//         });
 
-        function changeLightStatus() {
-            if (!isInValidState()) return;
-            state.rgbLight.status.futureStatus = getOppositeStatus(getCurrentStatus());
-            state.rgbLight.status.lastStatus = getCurrentStatus();
-            state.rgbLight.status.currentStatus = StatusType.Processing;
-            //console.log(state.rgbLight.status.redValue);
-            store.state.socket.emit(ClientCommands.ChangeDeviceStatus, state.rgbLight, state.selectedMode.value);
-            timeout = setTimeout(() => {
-                if (getCurrentStatus() === StatusType.Processing) {
-                    errorModal.value?.open("Device Status Timeout", `Your request to change the status of (${state.rgbLight.name}) from ${StatusType[getLastStatus()].toUpperCase()} to ${StatusType[getFutureStatus()].toUpperCase()} has Timed out. Please check your connection to the internet`);
-                    state.rgbLight.status.currentStatus = state.rgbLight.status.lastStatus;
-                }
-            }, getMsFromTime(state.rgbLight.settings.timeoutTime));
-        }
+//         function changeLightStatus() {
+//             if (!isInValidState()) return;
+//             state.rgbLight.status.futureStatus = getOppositeStatus(getCurrentStatus());
+//             state.rgbLight.status.lastStatus = getCurrentStatus();
+//             state.rgbLight.status.currentStatus = StatusType.Processing;
+//             //console.log(state.rgbLight.status.redValue);
+//             store.state.socket.emit(ClientCommands.ChangeDeviceStatus, state.rgbLight, state.selectedMode.value);
+//             timeout = setTimeout(() => {
+//                 if (getCurrentStatus() === StatusType.Processing) {
+//                     errorModal.value?.open("Device Status Timeout", `Your request to change the status of (${state.rgbLight.name}) from ${StatusType[getLastStatus()].toUpperCase()} to ${StatusType[getFutureStatus()].toUpperCase()} has Timed out. Please check your connection to the internet`);
+//                     state.rgbLight.status.currentStatus = state.rgbLight.status.lastStatus;
+//                 }
+//             }, getMsFromTime(state.rgbLight.settings.timeoutTime));
+//         }
 
-        function isInValidState() {
-            return getCurrentStatus() !== StatusType.Processing && getCurrentStatus() !== StatusType.Waiting && getCurrentStatus() !== StatusType.None;
-        }
+//         function isInValidState() {
+//             return getCurrentStatus() !== StatusType.Processing && getCurrentStatus() !== StatusType.Waiting && getCurrentStatus() !== StatusType.None;
+//         }
 
-        function openSettings() {
-            rgbLightSettingsModal.value?.open();
-        }
+//         function openSettings() {
+//             rgbLightSettingsModal.value?.open();
+//         }
 
-        function getFutureStatus(): StatusType {
-            return state.rgbLight.status.futureStatus;
-        }
+//         function getFutureStatus(): StatusType {
+//             return state.rgbLight.status.futureStatus;
+//         }
 
-        function getCurrentStatus(): StatusType {
-            return state.rgbLight.status.currentStatus;
-        }
+//         function getCurrentStatus(): StatusType {
+//             return state.rgbLight.status.currentStatus;
+//         }
 
-        function getLastStatus(): StatusType {
-            return state.rgbLight.status.lastStatus;
-        }
+//         function getLastStatus(): StatusType {
+//             return state.rgbLight.status.lastStatus;
+//         }
 
-        function getOppositeStatus(status: StatusType): StatusType {
-            return status == StatusType.On ? StatusType.Off : StatusType.On;
-        }
+//         function getOppositeStatus(status: StatusType): StatusType {
+//             return status == StatusType.On ? StatusType.Off : StatusType.On;
+//         }
 
-        onMounted(() => {
-            store.state.socket.on(ClientCommands.DeviceStatusChanged, (device: Device) => {
-                if (device.id !== props.deviceId) return;
-                if ((device.status as RgbLightStatus) == null) return;
-                state.rgbLight.status = device.status as RgbLightStatus;
-                //console.log(state.rgbLight.status.redValue);
-                clearTimeout(timeout);
-            });
-            store.state.socket.on(ClientCommands.SetTimer, (deviceId: number, timer: Timer) => {
-                if (deviceId !== props.deviceId) return;
-                state.rgbLight.settings.timer = timer;
-            });
-            store.state.socket.on(ClientCommands.DevicePinError, (device: Device) => {
-                if (device.id !== props.deviceId) return;
-                errorModal.value?.open("Device Pin Error", `Your device (${device.name}) Failed to change its status from ${StatusType[device.status.lastStatus].toUpperCase()} to ${StatusType[device.status.futureStatus].toUpperCase()}. This either means the physical pin / pinCheck is disconnected`);
-                state.rgbLight.status.currentStatus = device.status.lastStatus;
-            });
+//         onMounted(() => {
+//             store.state.socket.on(ClientCommands.DeviceStatusChanged, (device: Device) => {
+//                 if (device.id !== props.deviceId) return;
+//                 if ((device.status as RgbLightStatus) == null) return;
+//                 state.rgbLight.status = device.status as RgbLightStatus;
+//                 //console.log(state.rgbLight.status.redValue);
+//                 clearTimeout(timeout);
+//             });
+//             store.state.socket.on(ClientCommands.SetTimer, (deviceId: number, timer: Timer) => {
+//                 if (deviceId !== props.deviceId) return;
+//                 state.rgbLight.settings.timer = timer;
+//             });
+//             store.state.socket.on(ClientCommands.DevicePinError, (device: Device) => {
+//                 if (device.id !== props.deviceId) return;
+//                 errorModal.value?.open("Device Pin Error", `Your device (${device.name}) Failed to change its status from ${StatusType[device.status.lastStatus].toUpperCase()} to ${StatusType[device.status.futureStatus].toUpperCase()}. This either means the physical pin / pinCheck is disconnected`);
+//                 state.rgbLight.status.currentStatus = device.status.lastStatus;
+//             });
 
-            state.colorStyle = `rgb(${255 - state.rgbLight.status.redValue},${255 - state.rgbLight.status.greenValue},${255 - state.rgbLight.status.blueValue})`;
-        });
+//             state.colorStyle = `rgb(${255 - state.rgbLight.status.redValue},${255 - state.rgbLight.status.greenValue},${255 - state.rgbLight.status.blueValue})`;
+//         });
 
-        onUnmounted(() => {
-            store.state.socket.off(ClientCommands.DeviceStatusChanged);
-            store.state.socket.off(ClientCommands.DevicePinError);
-            store.state.socket.off(ClientCommands.SetTimer);
-        });
+//         onUnmounted(() => {
+//             store.state.socket.off(ClientCommands.DeviceStatusChanged);
+//             store.state.socket.off(ClientCommands.DevicePinError);
+//             store.state.socket.off(ClientCommands.SetTimer);
+//         });
 
-        function cancelTimer() {
-            store.state.socket.emit(ClientCommands.SetTimer, state.rgbLight.id, undefined);
-        }
+//         function cancelTimer() {
+//             store.state.socket.emit(ClientCommands.SetTimer, state.rgbLight.id, undefined);
+//         }
 
-        return {
-            state,
-            StatusType,
-            getColor,
-            getStatusText,
-            getFormattedTime,
-            isTimerActive,
-            changeLightStatus,
-            openSettings,
-            cancelTimer,
-            getFutureStatus,
-            getLastStatus,
-            getCurrentStatus,
-            getOppositeStatus,
-            modes,
-            rgbLightSettingsModal,
-            errorModal,
-        };
-    },
-});
+//         return {
+//             state,
+//             StatusType,
+//             getColor,
+//             getStatusText,
+//             getFormattedTime,
+//             isTimerActive,
+//             changeLightStatus,
+//             openSettings,
+//             cancelTimer,
+//             getFutureStatus,
+//             getLastStatus,
+//             getCurrentStatus,
+//             getOppositeStatus,
+//             modes,
+//             rgbLightSettingsModal,
+//             errorModal,
+//         };
+//     },
+// });
+//
 </script>

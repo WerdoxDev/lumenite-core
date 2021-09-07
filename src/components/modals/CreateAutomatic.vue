@@ -82,7 +82,6 @@ const daysMap = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday
 const monthsMap = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default defineComponent({
-    name: "CreateAutomatic",
     components: {
         Switch,
         Popover,

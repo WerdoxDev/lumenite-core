@@ -1,19 +1,19 @@
-import { Socket } from "socket.io-client";
+import mqtt from "mqtt/dist/mqtt.min";
+import { OutputDeviceClass } from "./classes";
 
 // Devices with no configurations can just be called Device
 // Devices with configurations such as scheduling can extend the SchedulingSettings interface
 
 // ------ Devices ------
+export interface Light extends OutputDevice {}
 
-export interface Light extends BasicDevice {}
-
-export interface TemperatureSensor extends BasicDevice {
-  status: TemperatureStatus;
+export interface TemperatureSensor extends DeviceStatus {
+  status?: TemperatureDeviceStatus;
 }
 
-export interface RgbLight extends BasicDevice {
-  configuration: RgbLightConfiguration;
-  status: RgbLightStatus;
+export interface RgbLight extends OutputDevice {
+  config: RgbLightConfiguration;
+  status?: RgbLightDeviceStatus;
   settings: RgbLightSettings;
 }
 
@@ -27,20 +27,21 @@ export interface TempSensor {
 export interface Device {
   readonly id: number;
   name: string;
-  status: DeviceStatus;
+  status?: DeviceStatus;
   readonly type: DeviceType;
 }
 
-export interface BasicConfiguration {
-  pinConfiguration: PinConfiguration;
+export interface OutputConfiguration {
+  pinConfig: PinConfiguration;
   moduleToken: string;
+  validCommands: Array<number>;
   isAnalog: boolean;
   isSubmodule: boolean;
   isInverted: boolean;
 }
 
-export interface RgbLightConfiguration extends BasicConfiguration {
-  pinConfiguration: RgbLightPinConfiguration;
+export interface RgbLightConfiguration extends OutputConfiguration {
+  pinConfig: RgbLightPinConfiguration;
 }
 
 export interface PinConfiguration {
@@ -54,37 +55,52 @@ export interface RgbLightPinConfiguration extends PinConfiguration {
   bluePin: number;
 }
 
-export interface DeviceStatus {
-  futureStatus: number;
-  currentStatus: number;
-  lastStatus: number;
+// status: {futureStatus: {power:0}}
+
+export interface Status {
+  power: number;
 }
 
-export interface RgbLightStatus extends DeviceStatus {
+export interface DeviceStatus {
+  futureStatus: Status;
+  currentStatus: Status;
+  lastStatus: Status;
+}
+
+export interface RgbLightDeviceStatus extends DeviceStatus {
+  futureStatus: RgbLightStatus;
+  currentStatus: RgbLightStatus;
+  lastStatus: RgbLightStatus;
+}
+
+export interface TemperatureDeviceStatus extends DeviceStatus {
+  futureStatus: TemperatureStatus;
+  currentStatus: TemperatureStatus;
+  lastStatus: TemperatureStatus;
+}
+
+export interface RgbLightStatus extends Status {
   redValue: number;
   greenValue: number;
   blueValue: number;
 }
 
-export interface TemperatureStatus extends DeviceStatus {
+export interface TemperatureStatus extends Status {
   temperature: number;
   humidity: number;
 }
 
-export interface BasicDevice extends Device {
-  settings: BasicSettings;
-  configuration: BasicConfiguration;
-  isConnected: boolean;
+export interface OutputDevice extends Device {
+  settings: OutputSettings;
+  config: OutputConfiguration;
 }
 
-export interface BasicSettings {
-  manualTimings: ManualTimings;
+export interface OutputSettings {
   automaticTimings: AutomaticTimings;
-  timer?: Timer;
-  timeoutTime: Time;
+  timeoutTime: number;
 }
 
-export interface RgbLightSettings extends BasicSettings {
+export interface RgbLightSettings extends OutputSettings {
   color: Color;
 }
 
@@ -92,20 +108,6 @@ export interface Color {
   red: number;
   green: number;
   blue: number;
-}
-
-export interface ToggleTiming {
-  toggleDelay: Time;
-}
-
-export interface PulseTiming {
-  pulseDelay: Time;
-  pulseTimeout: Time;
-}
-
-export interface Timing {
-  type: ManualTimingType;
-  time: Time;
 }
 
 export interface AutomaticTiming {
@@ -122,51 +124,24 @@ export interface Time {
   second: number;
 }
 
-export interface ModalState {
-  isOpen: boolean;
-  title?: string;
-  text?: string;
-}
-
-export interface SettingsModalMenu {
-  id: number;
-  name: string;
-  isHeader: boolean;
-}
-
-export interface Timer {
-  timeLeft?: Time;
-}
-
 export interface State {
-  socket: Socket;
-  devices: Array<BasicDevice>;
-  configuration: ClientConfiguration;
+  mqtt: mqtt.MqttClient | undefined;
+  id: string;
+  devices: Array<OutputDeviceClass>;
+  config: ClientConfiguration;
   isUserLoggedIn: boolean;
   isCloudConnected: boolean;
-  connectedModules: Array<Module>;
-}
-
-export interface DeviceSettingsState {
-  settings: BasicSettings;
-}
-
-export interface ManualTimingPayload {
-  type: ManualTimingType;
-  time: Time;
 }
 
 export interface Module {
-  id: string;
   token: string;
   isReady: boolean;
-  isResponded: boolean;
 }
 
 export interface Client {
   id: string;
   isReady: boolean;
-  isConfigured: boolean;
+  config: ClientConfiguration;
 }
 
 export interface ClientConfiguration {
@@ -207,14 +182,90 @@ export interface Calendar {
   year: number;
 }
 
-export type ManualTimings = Array<Timing>;
-
 export type AutomaticTimings = Array<AutomaticTiming>;
+
+export interface SettingsModalMenu {
+  id: number;
+  text: string;
+  isHeader: boolean;
+}
+
+export interface Option {
+  id: number;
+  text: string;
+  selected: boolean;
+}
+
+export interface SequenceItemsTab {
+  id: number;
+  text: string;
+  color: string;
+  selected: boolean;
+}
+
+export interface SequenceItem {
+  id: number;
+  tabId: number;
+  text: string;
+}
+
+export interface SequenceProgramItem {
+  id: number;
+  itemId: number;
+  text: string;
+  isPreview: boolean;
+}
+
+export interface DeviceSequenceItems {
+  type: DeviceType;
+  itemIds: Array<number>;
+}
+
+export interface ChangeDeviceStatusPayload {
+  id: number;
+  type: DeviceType;
+  status: DeviceStatus;
+}
+
+export interface ClientInitializePayload {
+  devices: Array<OutputDevice>;
+  config: ClientConfiguration;
+}
+
+export interface ModuleDeviceSettingsPayload {
+  id: number;
+  type: DeviceType;
+  settings: OutputSettings;
+}
+
+export interface ModuleDeviceStatusPayload {
+  id: number;
+  type: DeviceType;
+  status: {
+    currentStatus: number;
+  };
+}
+
+// 0: Power command. Payload: 0 or 1.
+export interface Command {
+  id: number;
+  deviceId: number;
+  payload: Array<string>;
+}
+
+export type ClientSetConnectedPayload = Array<number>;
+
+export interface ClientSetDevicesPayload {
+  id: number;
+  status: DeviceStatus;
+}
 
 // ------ Enums ------
 
 export enum StatusType {
-  None = -3,
+  None = -4,
+  Opposite = -5,
+  Offline = -3,
   Off = 0,
   On = 1,
   Waiting = -2,
@@ -223,143 +274,54 @@ export enum StatusType {
 
 export enum DeviceType {
   None = "NONE",
-  Light = "LIGHT",
+  OutputDevice = "OUTPUT_DEVICE",
   RgbLight = "RGB_LIGHT",
   TemperatureSensor = "TEMPERATURE_SENSOR",
 }
 
 export enum ErrorType {
-  LightFailure = "LIGHT_FAILURE",
+  DeviceFailure = "DEVICE_FAILURE",
   RequestTimeout = "REQUEST_TIMEOUT",
 }
 
-export enum TimingType {
-  None = "NONE",
-  Toggle = "TOGGLE",
-  Pulse = "PULSE",
+export enum CommandType {
+  Power = 0,
+  PowerChanged = 1,
 }
 
-// Mutation types
-export enum MutationType {
-  SetUserLoggedIn = "SET_USER_LOGGED_IN",
-  SetCloudConnected = "SET_CLOUD_CONNECTED",
-  AddConnectedModule = "ADD_MODULE_CONNECTED",
-  RemoveConnectedModule = "REMOVE_MODULE_CONNECTED",
-  ClearConnectedModules = "CLEAR_CONNECTED_MODULES",
-  SetDevices = "SET_DEVICES",
-  AddDevice = "ADD_DEVICE",
-  RemoveDevices = "REMOVE_DEVICES",
-  SetConfiguration = "SET_CONFIGURATION",
-}
-
-// Action types
-export enum ActionsType {
-  SetUserLoggedIn = "setUserLoggedIn",
-  SetCloudConnected = "setCloudConnected",
-  AddConnectedModule = "addConnectedModule",
-  RemoveConnectedModule = "removeConnectedModule",
-  ClearConnectedModules = "clearConnectedModules",
-  SetDevices = "setDevices",
-  AddDevice = "addDevice",
-  RemoveDevices = "removeDevices",
-  SetConfiguration = "setConfiguration",
-}
-
-// Getters types
-export enum GettersType {
-  IsUserLoggedIn = "isUserLoggedIn",
-  IsCloudConnected = "isCloudConnected",
-  IsModuleConnected = "isModuleConnected",
-  GetDevices = "getDevices",
-  GetConfiguration = "getConfiguration",
-}
-
-export enum ModulesType {
-  DeviceSettings = "deviceSettings",
-}
-
-export enum ModuleCommands {
-  Set = "module:set",
-  Configure = "module:configure",
-  ConfigureResponse = "module:configure-response",
-  GetDevicesStatus = "module:get-devices-status",
-  SetDevicesStatus = "module:set-devices-status",
-  ChangeDeviceStatus = "module:change-device-status",
-  DeviceStatusChanged = "module:device-status-changed",
-  DevicePinError = "module:device-pin-error",
-  SetToken = "module:set-token",
-  ResetToken = "module:reset-token",
-}
-
-export enum ClientCommands {
-  Set = "client:set",
-  CloudConnect = "client:cloud-connect",
-  Configure = "client:configure",
-  ConfigureResponse = "client:configure-response",
-  SetConnectedCount = "client:set-connected-count",
-  ModuleConnect = "client:module-connect",
-  ModuleDisconnect = "client:module-disconnect",
-  SetDevices = "client:set-devices",
-  SetDevicesResponse = "client:set-devices-response",
-  ChangeDeviceStatus = "client:change-device-status",
-  DeviceStatusChanged = "client:device-status-changed",
-  ChangeDeviceSettings = "client:change-device-settings",
-  DeviceSettingsChanged = "client:device-settings-changed",
-  DevicePinError = "client:device-pin-error",
-  SetTimer = "client:set-timer",
-}
-
-export enum ManualTimingType {
-  ToggleDelay = "TOGGLE_DELAY",
-  PulseDelay = "PULSE_DELAY",
-  PulseTimeout = "PULSE_TIMEOUT",
-}
-
-export enum SocketRooms {
-  ClientsRoom = "clients",
-  ModulesRoom = "modules",
+export enum SequenceItemType {
+  SetPower = 0,
+  TogglePower = 1,
+  If = 2,
+  Loop = 3,
+  WaitInSeconds = 4,
 }
 
 // ------ Initializers ------
 
-export function emptyStatus(type?: DeviceType): DeviceStatus {
-  if (type === DeviceType.RgbLight) {
-    return {
-      currentStatus: StatusType.None,
-      futureStatus: StatusType.None,
-      lastStatus: StatusType.None,
-      redValue: 0,
-      blueValue: 0,
-      greenValue: 0,
-    } as RgbLightStatus;
-  } else {
-    return {
-      currentStatus: StatusType.None,
-      futureStatus: StatusType.None,
-      lastStatus: StatusType.None,
-    };
-  }
+export function emptyDeviceStatus(type?: DeviceType): DeviceStatus {
+  var value: DeviceStatus = {
+    futureStatus: emptyStatus(type),
+    currentStatus: emptyStatus(type),
+    lastStatus: emptyStatus(type),
+  };
+  return value;
 }
 
-export function emptySettings(type?: DeviceType): BasicSettings {
-  var value: BasicSettings = {
-    timer: {},
-    manualTimings: [
-      {
-        type: ManualTimingType.PulseDelay,
-        time: emptyTime(),
-      },
-      {
-        type: ManualTimingType.PulseTimeout,
-        time: emptyTime(),
-      },
-      {
-        type: ManualTimingType.ToggleDelay,
-        time: emptyTime(),
-      },
-    ],
+export function emptyStatus(type?: DeviceType): Status {
+  var value: Status = {
+    power: StatusType.None,
+  };
+  if (type === DeviceType.RgbLight) {
+    value = Object.assign(value, { redValue: 0, greenValue: 0, blueValue: 0 });
+  }
+  return value;
+}
+
+export function emptySettings(type?: DeviceType): OutputSettings {
+  var value: OutputSettings = {
     automaticTimings: [],
-    timeoutTime: getTimeFromMs(3000),
+    timeoutTime: 3000,
   };
   if (type === DeviceType.RgbLight) {
     value = Object.assign(value, { color: emptyColor() });
@@ -400,3 +362,54 @@ export function getTimeFromMs(ms: number) {
 
   return time;
 }
+
+var generatedIds: Array<string> = [];
+
+export function getRandomId() {
+  function generate() {
+    var result = "";
+    var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    var charactersLength = characters.length;
+    for (var i = 0; i < 16; i++) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+  }
+
+  var id = generate();
+  while (generatedIds.some((x) => x === id)) {
+    id = generate();
+  }
+
+  return id;
+}
+
+export function checkTopic(topic: string, match: string, ...ignores: Array<number>) {
+  var splitTopic = topic.split("/");
+  for (let i = 0; i < ignores.length; i++) {
+    if (i > 0) {
+      splitTopic.splice(ignores[i] - ignores[i - 1], 1);
+    } else {
+      splitTopic.splice(ignores[i], 1);
+    }
+  }
+  var newTopic = splitTopic.join("/");
+  return newTopic === match;
+}
+
+export function stringJson(json: object) {
+  return JSON.stringify(json);
+}
+
+export function parseJson(string: string) {
+  return JSON.parse(string);
+}
+
+export function basicDeviceAsDevice(basicDevice: OutputDevice): Device {
+  var device: Device = { id: basicDevice.id, name: basicDevice.name, status: basicDevice.status, type: basicDevice.type };
+  return device;
+}
+
+// FutureStatus: {status: {1}, temp: 10}
+// CurrentStatus: {status: {0}, temp: 5}
+// LastStatus: {status: {1}, temp: 90}

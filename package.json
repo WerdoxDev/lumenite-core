@@ -11,9 +11,10 @@
   "dependencies": {
     "@headlessui/vue": "^1.2.0-105068",
     "@heroicons/vue": "^1.0.1",
+    "mqtt": "^4.2.8",
     "postcss-nested": "^5.0.5",
-    "socket.io-client": "^4.1.2",
     "vue": "^3.0.5",
+    "vue-router": "^4.0.11",
     "vuex": "^4.0.1"
   },
   "devDependencies": {
