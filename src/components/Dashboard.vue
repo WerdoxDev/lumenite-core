@@ -26,11 +26,11 @@
                     <h1 v-else class="text-white text-2xl">Loading data...</h1>
 
                     <!-- <div class="p-4">
-                        <div class="bg-white rounded-lg p-4 shadow-2xl flex flex-wrap justify-center">
-                            <h1 class="text-black text-2xl">Temp: {{ state.tempSensor.temperature }},&nbsp;</h1>
-                            <h1 class="text-black text-2xl">Humidity: {{ state.tempSensor.humidity }}</h1>
-                        </div>
-                    </div> -->
+              <div class="bg-white rounded-lg p-4 shadow-2xl flex flex-wrap justify-center">
+                  <h1 class="text-black text-2xl">Temp: {{ state.tempSensor.temperature }},&nbsp;</h1>
+                  <h1 class="text-black text-2xl">Humidity: {{ state.tempSensor.humidity }}</h1>
+              </div>
+          </div> -->
                 </div>
             </div>
         </div>
@@ -108,7 +108,11 @@ export default defineComponent({
             let devices = [...store.state.devices];
             devices.forEach((x) => {
                 var index = payload.findIndex((y) => y.id === x.id);
-                x.status = { futureStatus: emptyStatus(), currentStatus: payload[index].status?.currentStatus || emptyStatus(), lastStatus: emptyStatus() };
+                x.status = {
+                    futureStatus: emptyStatus(),
+                    currentStatus: payload[index].status?.currentStatus || emptyStatus(),
+                    lastStatus: emptyStatus(),
+                };
             });
             store.setDevices(devices);
         }
@@ -117,7 +121,6 @@ export default defineComponent({
             console.log("DASHBOARD MOUNTED");
             store.setUsedLoggedIn(true);
             store.connectMqtt();
-
             console.log(store.state.id);
             store.state.mqtt?.subscribe(`client/${store.state.id}/set-connected`);
             store.state.mqtt?.subscribe(`client/${store.state.id}/initialize`);

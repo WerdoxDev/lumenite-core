@@ -31,7 +31,7 @@ import { CogIcon } from "@heroicons/vue/outline";
 import { CheckIcon, SelectorIcon } from "@heroicons/vue/solid";
 import OutputSettingsModal from "./modals/deviceSettings/OutputSettingsModal.vue";
 import ErrorModal from "./modals/ErrorModal.vue";
-import { BasicDeviceClass } from "../../classes";
+import { OutputDeviceClass } from "../../classes";
 import { store } from "../store/store";
 
 // -4: None, -3: Offline, -2: Waiting, -1: Processing, 0: Off, 1: On
@@ -58,7 +58,7 @@ export default defineComponent({
         const deviceSettingsModal = ref<InstanceType<typeof OutputSettingsModal>>();
 
         const state = reactive({
-            device: store.state.devices.find((x) => x.id === props.deviceId) as BasicDeviceClass,
+            device: store.state.devices.find((x) => x.id === props.deviceId) as OutputDeviceClass,
         });
 
         var timeout;
@@ -129,8 +129,8 @@ export default defineComponent({
             // store.state.socket.on(ClientCommands.DevicePinError, (device: Device) => {
             //     if (device.id !== props.deviceId) return;
             //     errorModal.value?.open("Device Pin Error", `Your device (${device.name}) Failed to change its status from ${StatusType[device.status.lastStatus].toUpperCase()} to ${StatusType[device.status.futureStatus].toUpperCase()}. This either means the physical pin / pinCheck is disconnected`);
-            //     state.device.status.currentStatus = device.status.lastStatus;
-            // });
+            //     state.device.status.currentStats = device.status.lastStatus;
+            // });u
         });
 
         return {

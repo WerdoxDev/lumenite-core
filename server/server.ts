@@ -67,13 +67,13 @@ const devices: Array<OutputDevice> = [
 ];
 
 const options: mqtt.IClientOptions = {
-  // host: "211b94aa7734472e8c384db21d25fc6d.s2.eu.hivemq.cloud",
-  host: "192.168.1.115",
-  // username: "lumenite",
-  // password: "Lumenite2021",
+  host: "211b94aa7734472e8c384db21d25fc6d.s2.eu.hivemq.cloud",
+  // host: "192.168.1.115",
+  username: "lumenite",
+  password: "Lumenite2021",
   keepalive: 15,
-  // protocol: "mqtts",
-  port: 1883,
+  protocol: "mqtts",
+  port: 8883,
   will: {
     topic: "server/offline",
     payload: "",
